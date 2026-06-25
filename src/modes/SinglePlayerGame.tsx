@@ -1,12 +1,47 @@
-import { ArrowLeft, ArrowRight, Coins, HandCoins, Skull, Sparkles } from "lucide-react";
+import { ArrowLeft, Info, Minus, Palette, Play, Plus, RefreshCw, Repeat, Skull, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatMoney, rand } from "../shared";
 
 type Status = "ready" | "safe" | "crossing" | "dead" | "cashed";
+type Difficulty = "easy" | "medium" | "hard" | "extreme";
 
-type SinglePlayerState = {
+type DiffConfig = { label: string; survive: number; lanes: number; autoTarget: number };
+
+const DIFFS: Record<Difficulty, DiffConfig> = {
+  easy: { label: "Easy", survive: 0.9, lanes: 26, autoTarget: 7 },
+  medium: { label: "Medium", survive: 0.78, lanes: 22, autoTarget: 4 },
+  hard: { label: "Hard", survive: 0.62, lanes: 18, autoTarget: 3 },
+  extreme: { label: "Extreme", survive: 0.42, lanes: 14, autoTarget: 2 },
+};
+const DIFF_ORDER: Difficulty[] = ["easy", "medium", "hard", "extreme"];
+
+const HOUSE_EDGE = 0.03;
+
+const SNAKE_COLORS = [
+  { id: "emerald", name: "Emerald", base: "#37e07a" },
+  { id: "aqua", name: "Aqua", base: "#33d6ff" },
+  { id: "gold", name: "Gold", base: "#ffce3a" },
+  { id: "magenta", name: "Magenta", base: "#ff5ab0" },
+  { id: "violet", name: "Violet", base: "#9b7bff" },
+  { id: "orange", name: "Orange", base: "#ff8a3d" },
+];
+
+const STEP = 168;
+const COIN_R = 30;
+const CROSS_DURATION = 0.5;
+const CHOP_TIME = 0.18;
+const BASE_SEG = 4;
+const MAX_SEG = 40;
+const SEG_SPACING = 11;
+const HEAD_R = 13;
+
+type Ambient = { gap: number; y: number; v: number; size: number; rot: number; spin: number };
+type Burst = { wx: number; t: number; amount: number };
+
+type SPState = {
   status: Status;
   stake: number;
+  difficulty: Difficulty;
   level: number;
   fromLevel: number;
   crossT: number;
@@ -20,27 +55,14 @@ type SinglePlayerState = {
   shake: number;
   wiggle: number;
   result: number;
+  ambient: Ambient[];
+  spawnTimer: number;
+  bursts: Burst[];
 };
 
-const stakeOptions = [1, 5, 25, 100];
-
-const FAIL_CHANCE = 0.16;
-const HOUSE_EDGE = 0.05;
-const STEP_FACTOR = (1 - HOUSE_EDGE) / (1 - FAIL_CHANCE);
-
-const STEP = 220;
-const PLATFORM_W = 116;
-const PLATFORM_H = 22;
-const CROSS_DURATION = 0.62;
-const CHOP_TIME = 0.16;
-
-const BASE_SEG = 5;
-const MAX_SEG = 64;
-const SEG_SPACING = 12.5;
-const HEAD_R = 12;
-
-function multForLevel(level: number) {
-  return level <= 0 ? 1 : Math.pow(STEP_FACTOR, level);
+function multAt(level: number, survive: number) {
+  if (level <= 0) return 1;
+  return (1 - HOUSE_EDGE) / Math.pow(survive, level);
 }
 
 function levelX(level: number) {
@@ -48,17 +70,35 @@ function levelX(level: number) {
 }
 
 function segmentCount(level: number) {
-  return Math.min(MAX_SEG, BASE_SEG + Math.floor(level * 1.4));
+  return Math.min(MAX_SEG, BASE_SEG + Math.floor(level * 1.1));
 }
 
 function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
-function createState(stake: number): SinglePlayerState {
+function shade(hex: string, amt: number) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255;
+  let g = (n >> 8) & 255;
+  let b = n & 255;
+  if (amt >= 0) {
+    r += (255 - r) * amt;
+    g += (255 - g) * amt;
+    b += (255 - b) * amt;
+  } else {
+    r *= 1 + amt;
+    g *= 1 + amt;
+    b *= 1 + amt;
+  }
+  return `rgb(${r | 0}, ${g | 0}, ${b | 0})`;
+}
+
+function createState(stake: number, difficulty: Difficulty): SPState {
   return {
     status: "ready",
     stake,
+    difficulty,
     level: 0,
     fromLevel: 0,
     crossT: 0,
@@ -72,52 +112,85 @@ function createState(stake: number): SinglePlayerState {
     shake: 0,
     wiggle: 0,
     result: 0,
+    ambient: [],
+    spawnTimer: 0,
+    bursts: [],
   };
 }
 
-function startCrossing(state: SinglePlayerState) {
-  if (state.status !== "safe" && state.status !== "ready") return;
+function startCrossing(state: SPState) {
+  if (state.status !== "safe") return;
+  if (state.level + 1 > DIFFS[state.difficulty].lanes) return;
   state.fromLevel = state.level;
   state.status = "crossing";
   state.crossT = 0;
-  state.crossSurvive = Math.random() > FAIL_CHANCE;
+  state.crossSurvive = Math.random() < DIFFS[state.difficulty].survive;
   state.chopFired = false;
   state.chopAnim = 0;
 }
 
-function update(state: SinglePlayerState, dt: number, holding: boolean, width: number) {
+function update(state: SPState, dt: number, holding: boolean, width: number, height: number) {
   state.wiggle += dt;
   if (state.flash > 0) state.flash = Math.max(0, state.flash - dt);
   if (state.shake > 0) state.shake = Math.max(0, state.shake - dt);
+
+  for (let i = state.bursts.length - 1; i >= 0; i -= 1) {
+    state.bursts[i].t += dt;
+    if (state.bursts[i].t > 1.3) state.bursts.splice(i, 1);
+  }
+
+  state.spawnTimer -= dt;
+  if (state.spawnTimer <= 0 && state.status !== "ready") {
+    const firstGap = Math.floor(state.camX / STEP);
+    const visibleGaps = Math.ceil(width / STEP) + 1;
+    const gap = firstGap + Math.floor(Math.random() * visibleGaps);
+    state.ambient.push({
+      gap,
+      y: -40,
+      v: rand(260, 420),
+      size: rand(0.7, 1),
+      rot: 0,
+      spin: rand(-1.2, 1.2),
+    });
+    state.spawnTimer = rand(0.18, 0.4);
+  }
+  for (let i = state.ambient.length - 1; i >= 0; i -= 1) {
+    const a = state.ambient[i];
+    a.y += a.v * dt;
+    a.rot += a.spin * dt;
+    if (a.y > height + 60) state.ambient.splice(i, 1);
+  }
 
   if (state.status === "crossing") {
     if (state.chopFired) {
       state.chopAnim += dt;
       if (state.chopAnim >= CHOP_TIME) {
         state.status = "dead";
-        state.shake = 0.55;
+        state.shake = 0.6;
       }
     } else {
       state.crossT += dt / CROSS_DURATION;
       const eased = easeInOut(Math.min(1, state.crossT));
       state.snakeWX = levelX(state.fromLevel) + STEP * eased;
-
       if (!state.crossSurvive && state.crossT >= 0.5) {
         state.chopFired = true;
         state.chopAnim = 0;
-        state.snakeWX = levelX(state.fromLevel) + STEP * 0.5;
+        state.snakeWX = levelX(state.fromLevel) + STEP * 0.55;
       } else if (state.crossT >= 1) {
+        const survive = DIFFS[state.difficulty].survive;
+        const gained = state.stake * (multAt(state.fromLevel + 1, survive) - multAt(state.fromLevel, survive));
         state.level = state.fromLevel + 1;
         state.snakeWX = levelX(state.level);
         state.targetSegments = segmentCount(state.level);
-        state.flash = 0.55;
-        if (holding) startCrossing(state);
+        state.flash = 0.6;
+        state.bursts.push({ wx: levelX(state.level), t: 0, amount: gained });
+        if (holding && state.level < DIFFS[state.difficulty].lanes) startCrossing(state);
         else state.status = "safe";
       }
     }
   }
 
-  const target = state.snakeWX - width * 0.32;
+  const target = state.snakeWX - width * 0.28;
   state.camX += (target - state.camX) * Math.min(1, dt * 6);
 }
 
@@ -132,41 +205,169 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawBlade(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, hot: boolean) {
+function drawKnife(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, rot: number, danger: boolean) {
   ctx.save();
   ctx.translate(x, y);
+  ctx.rotate(rot);
   ctx.scale(scale, scale);
 
-  ctx.strokeStyle = "rgba(180, 196, 210, 0.35)";
-  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = danger ? "rgba(255,80,80,0.6)" : "rgba(180,210,255,0.6)";
+  roundRect(ctx, -2, -78, 4, 30, 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const pommel = ctx.createLinearGradient(0, -50, 0, -44);
+  pommel.addColorStop(0, "#d8b777");
+  pommel.addColorStop(1, "#9a7740");
+  ctx.fillStyle = pommel;
   ctx.beginPath();
-  ctx.moveTo(0, -240);
-  ctx.lineTo(0, -34);
-  ctx.stroke();
+  ctx.arc(0, -47, 4.5, 0, Math.PI * 2);
+  ctx.fill();
 
-  ctx.shadowColor = hot ? "rgba(255, 80, 80, 0.9)" : "rgba(150, 200, 255, 0.45)";
-  ctx.shadowBlur = hot ? 22 : 12;
+  const handle = ctx.createLinearGradient(-5, 0, 5, 0);
+  handle.addColorStop(0, "#3a2415");
+  handle.addColorStop(0.5, "#7a4d2c");
+  handle.addColorStop(1, "#3a2415");
+  ctx.fillStyle = handle;
+  roundRect(ctx, -5, -46, 10, 22, 4);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.32)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(-5, -42 + i * 6);
+    ctx.lineTo(5, -42 + i * 6);
+    ctx.stroke();
+  }
 
-  const blade = ctx.createLinearGradient(0, -34, 0, 18);
-  blade.addColorStop(0, "#ffffff");
-  blade.addColorStop(0.5, "#cfd8e3");
-  blade.addColorStop(1, "#7c8896");
+  const guard = ctx.createLinearGradient(0, -26, 0, -19);
+  guard.addColorStop(0, "#d8c690");
+  guard.addColorStop(1, "#8c7846");
+  ctx.fillStyle = guard;
+  roundRect(ctx, -15, -25, 30, 7, 3);
+  ctx.fill();
+
+  const blade = ctx.createLinearGradient(-9, 0, 9, 0);
+  blade.addColorStop(0, "#7e8a9a");
+  blade.addColorStop(0.4, "#e9eef4");
+  blade.addColorStop(0.52, "#ffffff");
+  blade.addColorStop(0.68, "#c6d0db");
+  blade.addColorStop(1, "#646f7e");
+  ctx.shadowColor = danger ? "rgba(255,55,55,0.9)" : "rgba(150,190,255,0.4)";
+  ctx.shadowBlur = danger ? 22 : 8;
   ctx.fillStyle = blade;
   ctx.beginPath();
-  ctx.moveTo(-22, -34);
-  ctx.lineTo(22, -34);
-  ctx.lineTo(0, 22);
+  ctx.moveTo(-8, -18);
+  ctx.lineTo(8, -18);
+  ctx.lineTo(6, 18);
+  ctx.lineTo(0, 36);
+  ctx.lineTo(-6, 18);
   ctx.closePath();
   ctx.fill();
-
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "#222a33";
-  roundRect(ctx, -26, -42, 52, 10, 4);
-  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(-1.5, -15);
+  ctx.lineTo(-0.5, 16);
+  ctx.stroke();
   ctx.restore();
 }
 
-function draw(canvas: HTMLCanvasElement, state: SinglePlayerState) {
+function drawSnake(
+  ctx: CanvasRenderingContext2D,
+  headX: number,
+  laneY: number,
+  segCount: number,
+  base: string,
+  wiggle: number,
+  amp: number,
+  dead: boolean,
+) {
+  const light = dead ? "#b7c2bf" : shade(base, 0.4);
+  const mid = dead ? "#8b9794" : base;
+  const dark = dead ? "#5d6664" : shade(base, -0.32);
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(headX - segCount * SEG_SPACING * 0.4, laneY + HEAD_R + 6, segCount * SEG_SPACING * 0.6 + 14, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  for (let i = segCount - 1; i >= 0; i -= 1) {
+    const sx = headX - i * SEG_SPACING;
+    const sy = laneY + Math.sin(wiggle * 6 - i * 0.5) * amp;
+    const t = i / segCount;
+    const r = Math.max(4.5, HEAD_R * (1 - t * 0.5));
+    const grad = ctx.createRadialGradient(sx - r * 0.3, sy - r * 0.4, r * 0.2, sx, sy, r);
+    grad.addColorStop(0, light);
+    grad.addColorStop(0.55, mid);
+    grad.addColorStop(1, dark);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const hx = headX;
+  const hy = laneY + Math.sin(wiggle * 6) * amp;
+  const hr = HEAD_R + 2.5;
+  const hg = ctx.createRadialGradient(hx - hr * 0.3, hy - hr * 0.4, hr * 0.2, hx, hy, hr);
+  hg.addColorStop(0, light);
+  hg.addColorStop(0.55, mid);
+  hg.addColorStop(1, dark);
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (!dead) {
+    const tongue = (Math.sin(wiggle * 9) * 0.5 + 0.5) * 8;
+    ctx.strokeStyle = "#ff4d6d";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(hx + hr - 2, hy);
+    ctx.lineTo(hx + hr + tongue, hy);
+    ctx.stroke();
+    if (tongue > 4) {
+      ctx.beginPath();
+      ctx.moveTo(hx + hr + tongue, hy);
+      ctx.lineTo(hx + hr + tongue + 4, hy - 3);
+      ctx.moveTo(hx + hr + tongue, hy);
+      ctx.lineTo(hx + hr + tongue + 4, hy + 3);
+      ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(hx + 4, hy - 5, 4.2, 0, Math.PI * 2);
+  ctx.arc(hx + 10, hy - 5, 4.2, 0, Math.PI * 2);
+  ctx.fill();
+  if (dead) {
+    ctx.strokeStyle = "#3a2222";
+    ctx.lineWidth = 1.6;
+    for (const ex of [4, 10]) {
+      ctx.beginPath();
+      ctx.moveTo(hx + ex - 3, hy - 8);
+      ctx.lineTo(hx + ex + 3, hy - 2);
+      ctx.moveTo(hx + ex + 3, hy - 8);
+      ctx.lineTo(hx + ex - 3, hy - 2);
+      ctx.stroke();
+    }
+  } else {
+    ctx.fillStyle = "#10201c";
+    ctx.beginPath();
+    ctx.arc(hx + 5.5, hy - 5, 2, 0, Math.PI * 2);
+    ctx.arc(hx + 11.5, hy - 5, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
@@ -180,136 +381,157 @@ function draw(canvas: HTMLCanvasElement, state: SinglePlayerState) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const laneY = rect.height * 0.56;
-  const screenX = (worldX: number) => worldX - state.camX;
+  const laneY = rect.height * 0.52;
+  const screenX = (wx: number) => wx - state.camX;
+  const diff = DIFFS[state.difficulty];
 
-  const shakeX = state.shake > 0 ? rand(-7, 7) * (state.shake / 0.55) : 0;
-  const shakeY = state.shake > 0 ? rand(-7, 7) * (state.shake / 0.55) : 0;
+  const shakeX = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
+  const shakeY = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
   ctx.save();
   ctx.translate(shakeX, shakeY);
 
-  const bg = ctx.createLinearGradient(0, 0, 0, rect.height);
-  bg.addColorStop(0, "#0c1826");
-  bg.addColorStop(0.5, "#0a121c");
-  bg.addColorStop(1, "#060c12");
-  ctx.fillStyle = bg;
-  ctx.fillRect(-30, -30, rect.width + 60, rect.height + 60);
+  const road = ctx.createLinearGradient(0, 0, 0, rect.height);
+  road.addColorStop(0, "#5b6675");
+  road.addColorStop(0.5, "#4c5765");
+  road.addColorStop(1, "#3e4855");
+  ctx.fillStyle = road;
+  ctx.fillRect(-20, -20, rect.width + 40, rect.height + 40);
 
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.fillRect(-30, laneY + PLATFORM_H, rect.width + 60, rect.height);
-
-  const firstLevel = Math.max(0, Math.floor(state.camX / STEP) - 1);
-  const lastLevel = firstLevel + Math.ceil(rect.width / STEP) + 3;
-
-  for (let n = firstLevel; n <= lastLevel; n += 1) {
-    const gapCenterX = screenX(levelX(n) + STEP / 2);
-    if (gapCenterX < -60 || gapCenterX > rect.width + 60) continue;
-    const bob = Math.sin(state.wiggle * 2 + n) * 4;
-    const restY = laneY - 150;
-    let bladeY = restY + bob;
-    let hot = false;
-
-    if (n === state.fromLevel && state.status === "crossing") {
-      if (!state.crossSurvive && state.chopFired) {
-        bladeY = restY + (laneY + 6 - restY) * Math.min(1, state.chopAnim / CHOP_TIME);
-        hot = true;
-      } else if (state.crossSurvive && state.crossT > 0.7) {
-        bladeY = restY + (laneY + 6 - restY) * Math.min(1, (state.crossT - 0.7) / 0.3);
-      }
-    } else if (n === state.fromLevel && state.status === "dead" && !state.crossSurvive) {
-      bladeY = laneY + 6;
-      hot = true;
+  const grassEdge = screenX(levelX(0) - STEP * 0.5);
+  if (grassEdge > 0) {
+    const grass = ctx.createLinearGradient(0, 0, 0, rect.height);
+    grass.addColorStop(0, "#57b65a");
+    grass.addColorStop(1, "#3f9a45");
+    ctx.fillStyle = grass;
+    ctx.fillRect(-20, -20, grassEdge + 20, rect.height + 40);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(grassEdge - 5, -20, 5, rect.height + 40);
+    ctx.fillStyle = "rgba(20,60,25,0.35)";
+    for (let gy = 0; gy < rect.height; gy += 46) {
+      const gx = (gy * 1.7) % Math.max(20, grassEdge);
+      ctx.fillRect(gx, gy + (gx % 14), 3, 9);
     }
-    drawBlade(ctx, gapCenterX, bladeY, 1, hot);
   }
 
-  for (let n = firstLevel; n <= lastLevel; n += 1) {
-    const px = screenX(levelX(n));
-    if (px < -PLATFORM_W || px > rect.width + PLATFORM_W) continue;
+  const firstLane = Math.max(0, Math.floor(state.camX / STEP) - 1);
+  const lastLane = Math.min(diff.lanes, firstLane + Math.ceil(rect.width / STEP) + 2);
 
-    const isCurrent = n === state.level && state.status !== "crossing";
-    const isPassed = n < state.level || (state.status === "crossing" && n <= state.fromLevel);
-    const isNext = n === state.level + (state.status === "crossing" ? 0 : 1);
+  ctx.strokeStyle = "rgba(255, 209, 71, 0.85)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([22, 20]);
+  for (let n = firstLane; n <= lastLane + 1; n += 1) {
+    const dividerX = screenX(levelX(n) - STEP / 2);
+    if (dividerX < grassEdge - 4 || dividerX > rect.width + 10) continue;
+    ctx.beginPath();
+    ctx.moveTo(dividerX, -10);
+    ctx.lineTo(dividerX, rect.height + 10);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
 
-    const padColor = isPassed ? "rgba(99,255,224,0.16)" : isNext ? "rgba(255,212,71,0.16)" : "rgba(255,255,255,0.06)";
-    const edge = isCurrent ? "#63ffe0" : isNext ? "rgba(255,212,71,0.6)" : "rgba(255,255,255,0.16)";
+  for (const a of state.ambient) {
+    const ax = screenX(levelX(a.gap) + STEP * 0.5);
+    if (ax < -40 || ax > rect.width + 40) continue;
+    drawKnife(ctx, ax, a.y, a.size, a.rot, false);
+  }
 
-    ctx.shadowColor = isCurrent ? "rgba(99,255,224,0.5)" : "transparent";
-    ctx.shadowBlur = isCurrent ? 22 : 0;
-    ctx.fillStyle = padColor;
-    roundRect(ctx, px - PLATFORM_W / 2, laneY + 4, PLATFORM_W, PLATFORM_H, 9);
+  for (let n = firstLane; n <= lastLane; n += 1) {
+    if (n < 1) continue;
+    const cx = screenX(levelX(n));
+    if (cx < -COIN_R * 2 || cx > rect.width + COIN_R * 2) continue;
+
+    const passed = n <= state.level;
+    const isNext = n === (state.status === "crossing" ? state.fromLevel + 1 : state.level + 1);
+    const pulse = isNext ? 1 + Math.sin(state.wiggle * 5) * 0.06 : 1;
+    const r = COIN_R * pulse;
+
+    if (passed || isNext) {
+      ctx.save();
+      ctx.shadowColor = passed ? "rgba(55, 224, 122, 0.8)" : "rgba(255, 206, 58, 0.85)";
+      ctx.shadowBlur = 22;
+      ctx.beginPath();
+      ctx.arc(cx, laneY, r + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = passed ? "#37e07a" : "#ffce3a";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const coin = ctx.createRadialGradient(cx - r * 0.4, laneY - r * 0.4, r * 0.2, cx, laneY, r);
+    if (passed) {
+      coin.addColorStop(0, "#9bf7c0");
+      coin.addColorStop(1, "#1f9a52");
+    } else if (isNext) {
+      coin.addColorStop(0, "#fff0bd");
+      coin.addColorStop(1, "#d99a16");
+    } else {
+      coin.addColorStop(0, "#aeb9c7");
+      coin.addColorStop(1, "#5b6675");
+    }
+    ctx.fillStyle = coin;
+    ctx.beginPath();
+    ctx.arc(cx, laneY, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = isCurrent ? 2.4 : 1.4;
-    ctx.strokeStyle = edge;
-    roundRect(ctx, px - PLATFORM_W / 2, laneY + 4, PLATFORM_W, PLATFORM_H, 9);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.beginPath();
+    ctx.arc(cx, laneY, r - 3, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(220, 240, 236, 0.75)";
-    ctx.font = "700 11px Inter, system-ui";
-    ctx.fillText(`LV ${n + 1}`, px, laneY + PLATFORM_H + 22);
+    ctx.fillStyle = "#10201c";
+    ctx.font = "800 15px 'Space Grotesk', Inter, system-ui";
+    ctx.fillText(`${multAt(n, diff.survive).toFixed(2)}x`, cx, laneY + 5);
 
-    if (n >= 1) {
-      ctx.fillStyle = isNext ? "#ffd447" : "rgba(255,255,255,0.85)";
-      ctx.font = "800 14px 'Space Grotesk', Inter, system-ui";
-      ctx.fillText(`${multForLevel(n).toFixed(2)}x`, px, laneY - 26);
-      ctx.fillStyle = "rgba(150, 170, 166, 0.85)";
-      ctx.font = "600 11px Inter, system-ui";
-      ctx.fillText(formatMoney(state.stake * multForLevel(n)), px, laneY - 12);
-    } else {
-      ctx.fillStyle = "rgba(150, 170, 166, 0.85)";
-      ctx.font = "700 11px Inter, system-ui";
-      ctx.fillText("START", px, laneY - 14);
-    }
+    ctx.fillStyle = passed ? "#bdf7d4" : isNext ? "#ffe9a8" : "rgba(220,230,236,0.7)";
+    ctx.font = "700 11px Inter, system-ui";
+    ctx.fillText(formatMoney(state.stake * multAt(n, diff.survive)), cx, laneY + r + 16);
   }
 
   const headX = screenX(state.snakeWX);
-  const segCount = state.targetSegments;
   const dead = state.status === "dead";
-  const movingAmp = state.status === "crossing" ? 6 : 3.2;
+  const amp = state.status === "crossing" ? 5.5 : 3;
+  drawSnake(ctx, headX, laneY, state.targetSegments, snakeColor, state.wiggle, amp, dead);
 
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (let i = segCount - 1; i >= 1; i -= 1) {
-    const sx = headX - i * SEG_SPACING;
-    const sy = laneY - HEAD_R + Math.sin(state.wiggle * 6 - i * 0.55) * movingAmp;
-    const sxPrev = headX - (i - 1) * SEG_SPACING;
-    const syPrev = laneY - HEAD_R + Math.sin(state.wiggle * 6 - (i - 1) * 0.55) * movingAmp;
-    const t = i / segCount;
-    const w = Math.max(5, HEAD_R * 2 * (1 - t * 0.5));
+  if (state.status === "crossing" || state.status === "dead") {
+    const gapCenter = screenX(levelX(state.fromLevel) + STEP * 0.55);
+    let bladeY = -80;
+    let show = false;
+    const restY = laneY - 50;
+    if (!state.crossSurvive && state.chopFired) {
+      const p = Math.min(1, state.chopAnim / CHOP_TIME);
+      bladeY = -120 + (restY + 120) * p;
+      show = true;
+    } else if (dead && !state.crossSurvive) {
+      bladeY = restY;
+      show = true;
+    }
+    if (show) drawKnife(ctx, gapCenter, bladeY, 1.6, 0, true);
+  }
+
+  for (const burst of state.bursts) {
+    const bx = screenX(burst.wx);
+    const p = burst.t / 1.3;
+    const ringR = COIN_R + p * 70;
+    ctx.globalAlpha = Math.max(0, 1 - p);
+    ctx.strokeStyle = "#7cffd0";
+    ctx.lineWidth = 4 * (1 - p);
     ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sxPrev, syPrev);
-    ctx.strokeStyle = dead ? "#7d4b4b" : "#63ffe0";
-    ctx.lineWidth = w;
-    ctx.shadowColor = dead ? "rgba(255,90,90,0.4)" : "#36e0bd";
-    ctx.shadowBlur = 12;
+    ctx.arc(bx, laneY, ringR, 0, Math.PI * 2);
     ctx.stroke();
-  }
-
-  const headY = laneY - HEAD_R + Math.sin(state.wiggle * 6) * movingAmp;
-  ctx.shadowBlur = dead ? 0 : 18;
-  ctx.fillStyle = dead ? "#9a5a5a" : "#aaffe9";
-  ctx.beginPath();
-  ctx.arc(headX, headY, HEAD_R + 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  if (!dead) {
-    ctx.fillStyle = "#06110f";
-    ctx.beginPath();
-    ctx.arc(headX + 4, headY - 4, 2.6, 0, Math.PI * 2);
-    ctx.arc(headX + 9, headY - 4, 2.6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (state.flash > 0 && (state.status === "safe" || state.status === "crossing")) {
-    ctx.globalAlpha = Math.min(1, state.flash * 2.2);
+    for (let s = 0; s < 8; s += 1) {
+      const ang = (s / 8) * Math.PI * 2 + state.wiggle;
+      const dist = 20 + p * 60;
+      ctx.fillStyle = s % 2 ? "#ffce3a" : "#7cffd0";
+      ctx.beginPath();
+      ctx.arc(bx + Math.cos(ang) * dist, laneY + Math.sin(ang) * dist, 3 * (1 - p), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = Math.max(0, 1 - p * 1.1);
     ctx.fillStyle = "#7cffd0";
-    ctx.font = "800 22px 'Space Grotesk', Inter, system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("SAFE", headX, headY - 34);
+    ctx.font = "800 18px 'Space Grotesk', Inter, system-ui";
+    ctx.fillText(`+${formatMoney(burst.amount)}`, bx, laneY - 40 - p * 26);
     ctx.globalAlpha = 1;
   }
 
@@ -324,43 +546,62 @@ type SinglePlayerGameProps = {
 
 export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePlayerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const stateRef = useRef<SinglePlayerState>(createState(stakeOptions[1]));
+  const stateRef = useRef<SPState>(createState(1, "easy"));
   const holdingRef = useRef(false);
+  const autoplayRef = useRef(false);
+  const autoTimerRef = useRef(0);
+  const colorRef = useRef(SNAKE_COLORS[0].base);
   const frameRef = useRef<number | null>(null);
   const lastRef = useRef<number>(performance.now());
 
-  const [stake, setStake] = useState(stakeOptions[1]);
+  const [stake, setStake] = useState(1);
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [snakeColor, setSnakeColor] = useState(SNAKE_COLORS[0].base);
+  const [autoplay, setAutoplay] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showColors, setShowColors] = useState(false);
   const [hud, setHud] = useState({
     status: "ready" as Status,
     level: 0,
     multiplier: 1,
     cashout: 0,
-    nextMultiplier: STEP_FACTOR,
+    nextMultiplier: multAt(1, DIFFS.easy.survive),
     result: 0,
+    lanes: DIFFS.easy.lanes,
   });
+
+  useEffect(() => {
+    colorRef.current = snakeColor;
+  }, [snakeColor]);
+  useEffect(() => {
+    autoplayRef.current = autoplay;
+  }, [autoplay]);
 
   const startRun = useCallback(() => {
     if (balance < stake) return;
     onAdjustBalance(-stake);
     holdingRef.current = false;
-    const next = createState(stake);
+    const next = createState(stake, difficulty);
     next.status = "safe";
     stateRef.current = next;
-  }, [balance, stake, onAdjustBalance]);
+  }, [balance, stake, difficulty, onAdjustBalance]);
 
   const beginCross = useCallback(() => {
-    const state = stateRef.current;
-    if (state.status === "safe") startCrossing(state);
+    if (stateRef.current.status === "safe") startCrossing(stateRef.current);
   }, []);
 
   const cashOut = useCallback(() => {
-    const state = stateRef.current;
-    if (state.status !== "safe" || state.level < 1) return;
-    state.result = state.stake * multForLevel(state.level);
-    state.status = "cashed";
+    const s = stateRef.current;
+    if (s.status !== "safe" || s.level < 1) return;
+    s.result = s.stake * multAt(s.level, DIFFS[s.difficulty].survive);
+    s.status = "cashed";
     holdingRef.current = false;
-    onAdjustBalance(state.result);
+    onAdjustBalance(s.result);
   }, [onAdjustBalance]);
+
+  const closeEnd = useCallback(() => {
+    stateRef.current = createState(stake, difficulty);
+  }, [stake, difficulty]);
 
   useEffect(() => {
     const loop = (now: number) => {
@@ -369,17 +610,44 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
       const canvas = canvasRef.current;
       if (canvas) {
         const r = canvas.getBoundingClientRect();
-        update(stateRef.current, dt, holdingRef.current, r.width);
-        draw(canvas, stateRef.current);
+        update(stateRef.current, dt, holdingRef.current, r.width, r.height);
+        draw(canvas, stateRef.current, colorRef.current);
       }
+
       const s = stateRef.current;
+      if (autoplayRef.current) {
+        autoTimerRef.current -= dt;
+        if (autoTimerRef.current <= 0) {
+          if (s.status === "ready" || s.status === "dead" || s.status === "cashed") {
+            if (s.status !== "ready") stateRef.current = createState(s.stake, s.difficulty);
+            if (balance >= s.stake) {
+              startRun();
+              autoTimerRef.current = 0.7;
+            } else {
+              autoplayRef.current = false;
+              setAutoplay(false);
+            }
+          } else if (s.status === "safe") {
+            if (s.level >= DIFFS[s.difficulty].autoTarget) {
+              cashOut();
+              autoTimerRef.current = 1.1;
+            } else {
+              beginCross();
+              autoTimerRef.current = 0.75;
+            }
+          }
+        }
+      }
+
+      const survive = DIFFS[s.difficulty].survive;
       setHud({
         status: s.status,
         level: s.level,
-        multiplier: multForLevel(s.level),
-        cashout: s.stake * multForLevel(s.level),
-        nextMultiplier: multForLevel(s.level + 1),
+        multiplier: multAt(s.level, survive),
+        cashout: s.stake * multAt(s.level, survive),
+        nextMultiplier: multAt(s.level + 1, survive),
         result: s.result,
+        lanes: DIFFS[s.difficulty].lanes,
       });
       frameRef.current = requestAnimationFrame(loop);
     };
@@ -387,7 +655,7 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, []);
+  }, [balance, startRun, beginCross, cashOut]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -395,18 +663,14 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
       event.preventDefault();
       if (event.repeat) return;
       const status = stateRef.current.status;
-      if (status === "ready" || status === "dead" || status === "cashed") {
-        startRun();
-        return;
-      }
-      if (status === "safe") {
+      if (status === "ready") startRun();
+      else if (status === "safe") {
         holdingRef.current = true;
         beginCross();
       }
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
-      holdingRef.current = false;
+      if (event.code === "Space") holdingRef.current = false;
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -416,16 +680,23 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
     };
   }, [startRun, beginCross]);
 
-  const pressCross = () => {
-    holdingRef.current = true;
-    beginCross();
-  };
-  const releaseCross = () => {
-    holdingRef.current = false;
+  const adjustStake = (dir: number) => {
+    setStake((prev) => {
+      const step = prev < 5 ? 0.5 : prev < 50 ? 5 : 25;
+      const next = Math.max(0.5, Math.round((prev + dir * step) * 100) / 100);
+      return Math.min(next, Math.max(0.5, balance));
+    });
   };
 
+  const inRun = hud.status === "safe" || hud.status === "crossing";
   const canAfford = balance >= stake;
-  const canCash = hud.status === "safe" && hud.level >= 1;
+  const showEnd = hud.status === "dead" || hud.status === "cashed";
+
+  const goAction = () => {
+    const st = stateRef.current.status;
+    if (st === "ready") startRun();
+    else if (st === "safe") beginCross();
+  };
 
   return (
     <div className="single-screen">
@@ -434,8 +705,8 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
           <ArrowLeft size={16} /> Menu
         </button>
         <div className="match-title">
-          <span className="eyebrow">Single player · Knife Crossing</span>
-          <strong>Cross the checkpoints, bank the climb before a blade drops.</strong>
+          <span className="eyebrow">Single player</span>
+          <strong>Snake Crossing</strong>
         </div>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
@@ -443,138 +714,161 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
         </div>
       </header>
 
-      <div className="single-layout">
-        <section className="arena-column">
-          <div className="single-stats">
-            <Pill label="Level" value={`${hud.level + 1}`} />
-            <Pill label="Multiplier" value={`${hud.multiplier.toFixed(2)}x`} accent />
-            <Pill label="Cash out" value={formatMoney(hud.cashout)} />
+      <div className="cabinet">
+        <div className="cabinet-screen">
+          <canvas
+            ref={canvasRef}
+            className="arena-canvas single-canvas"
+            onPointerDown={() => { if (stateRef.current.status === "safe") { holdingRef.current = true; beginCross(); } }}
+            onPointerUp={() => { holdingRef.current = false; }}
+            onPointerLeave={() => { holdingRef.current = false; }}
+          />
+
+          <div className="game-logo">
+            <span className="logo-snake">SLITHER</span>
+            <span className="logo-bet">BET</span>
           </div>
-          <div className="arena-frame">
-            <canvas
-              ref={canvasRef}
-              className="arena-canvas single-canvas"
-              onPointerDown={() => { if (stateRef.current.status === "safe") pressCross(); }}
-              onPointerUp={releaseCross}
-              onPointerLeave={releaseCross}
-            />
 
-            {(hud.status === "safe" || hud.status === "crossing") && (
-              <div className="single-controls">
-                <button
-                  className="cashout-button"
-                  type="button"
-                  onClick={cashOut}
-                  disabled={!canCash}
-                >
-                  <HandCoins size={18} /> Cash out {formatMoney(hud.cashout)}
-                </button>
-                <button
-                  className="cross-button"
-                  type="button"
-                  onPointerDown={pressCross}
-                  onPointerUp={releaseCross}
-                  onPointerLeave={releaseCross}
-                  disabled={hud.status === "crossing"}
-                  title="Tap to cross one checkpoint · hold to chain"
-                >
-                  <ArrowRight size={18} /> {hud.status === "crossing" ? "Crossing…" : `Cross → ${hud.nextMultiplier.toFixed(2)}x`}
-                </button>
-              </div>
-            )}
-
-            {hud.status === "ready" && (
-              <div className="center-overlay">
-                <Sparkles size={26} />
-                <strong>Knife Crossing</strong>
-                <p>
-                  You start as a baby snake on level one. <b>Tap Space</b> (or the Cross button) to dash to the
-                  next checkpoint — survive and your cash climbs. <b>Hold Space</b> to chain through several
-                  checkpoints at once for a bigger jump. Miss the timing and a falling blade takes your head.
-                  Cash out any time you're safe.
-                </p>
-                <div className="stake-row">
-                  {stakeOptions.map((option) => (
-                    <button
-                      key={option}
-                      className={`stake-chip ${stake === option ? "active" : ""}`}
-                      type="button"
-                      onClick={() => setStake(option)}
-                      disabled={balance < option}
-                    >
-                      {formatMoney(option)}
-                    </button>
-                  ))}
-                </div>
-                <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
-                  <Coins size={18} /> {canAfford ? `Stake ${formatMoney(stake)} & start` : "Insufficient balance"}
-                </button>
-              </div>
-            )}
-
-            {hud.status === "dead" && (
-              <div className="center-overlay danger">
-                <Skull size={28} />
-                <strong>Chopped!</strong>
-                <p>A blade dropped mid-crossing. You lost your {formatMoney(stake)} stake.</p>
-                <p className="muted">Reached level {hud.level + 1} · {hud.multiplier.toFixed(2)}x</p>
-                <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
-                  Try again · {formatMoney(stake)}
-                </button>
-              </div>
-            )}
-
-            {hud.status === "cashed" && (
-              <div className="center-overlay win">
-                <HandCoins size={28} />
-                <strong>Cashed out {formatMoney(hud.result)}</strong>
-                <p className="muted">Banked at level {hud.level + 1} · {hud.multiplier.toFixed(2)}x</p>
-                <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
-                  Play again · {formatMoney(stake)}
-                </button>
-              </div>
-            )}
+          <div className="screen-tools">
+            <button className="round-tool" type="button" onClick={() => setShowColors((v) => !v)} title="Snake color" aria-label="Snake color">
+              <Palette size={18} />
+            </button>
+            <button className="round-tool" type="button" onClick={() => setShowInfo(true)} title="How to play" aria-label="How to play">
+              <Info size={18} />
+            </button>
           </div>
-        </section>
 
-        <aside className="single-side">
-          <section className="panel-block">
-            <div className="panel-header compact">
-              <span className="eyebrow">How it works</span>
-              <h2>Risk ladder</h2>
+          {showColors && (
+            <div className="color-pop">
+              {SNAKE_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  className={`swatch ${snakeColor === c.base ? "active" : ""}`}
+                  style={{ background: c.base }}
+                  type="button"
+                  title={c.name}
+                  aria-label={c.name}
+                  onClick={() => { setSnakeColor(c.base); setShowColors(false); }}
+                />
+              ))}
             </div>
-            <ul className="howto-list">
-              <li><span>1</span> Pick a stake and enter as a baby snake.</li>
-              <li><span>2</span> Tap Space to cross to the next checkpoint.</li>
-              <li><span>3</span> Hold Space to chain several checkpoints at once.</li>
-              <li><span>4</span> Each level survived raises your cash multiplier.</li>
-              <li><span>5</span> Cash out when safe — or a blade ends the run.</li>
-            </ul>
-          </section>
-          <section className="panel-block payout-note">
-            <div className="panel-header compact">
-              <span className="eyebrow">Current run</span>
-              <h2>{hud.multiplier.toFixed(2)}x</h2>
+          )}
+
+          <div className="run-readout">
+            <div className="readout-block">
+              <span>Multiplier</span>
+              <strong>{hud.multiplier.toFixed(2)}x</strong>
             </div>
-            <p className="rake-note">
-              Potential cash out <strong>{formatMoney(hud.cashout)}</strong>
-            </p>
-            <p className="rake-note">
-              Next checkpoint <strong>{hud.nextMultiplier.toFixed(2)}x</strong>
-            </p>
-            <p className="muted small">Fake money demo — no real currency in play.</p>
-          </section>
-        </aside>
+            <div className="readout-block gold">
+              <span>Cash out</span>
+              <strong>{formatMoney(hud.cashout)}</strong>
+            </div>
+            <div className="readout-block">
+              <span>Level</span>
+              <strong>{hud.level}/{hud.lanes}</strong>
+            </div>
+          </div>
+
+          {inRun && (
+            <button className="cashout-fab" type="button" onClick={cashOut} disabled={hud.status !== "safe" || hud.level < 1}>
+              Cash out {formatMoney(hud.cashout)}
+            </button>
+          )}
+
+          {showEnd && (
+            <div className={`end-modal ${hud.status === "dead" ? "lose" : "win"}`}>
+              <button className="modal-x" type="button" onClick={closeEnd} aria-label="Close">
+                <X size={18} />
+              </button>
+              {hud.status === "dead" ? (
+                <>
+                  <div className="end-icon lose"><Skull size={30} /></div>
+                  <h3>Chopped!</h3>
+                  <p>A blade dropped mid-crossing. You lost {formatMoney(stake)}.</p>
+                  <p className="end-sub">Reached level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
+                </>
+              ) : (
+                <>
+                  <div className="end-icon win"><Play size={30} /></div>
+                  <h3>Cashed out {formatMoney(hud.result)}</h3>
+                  <p className="end-sub">Banked at level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
+                </>
+              )}
+              <div className="end-actions">
+                <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
+                  <RefreshCw size={16} /> Try again · {formatMoney(stake)}
+                </button>
+                <button className="ghost-button" type="button" onClick={closeEnd}>Change bet</button>
+              </div>
+            </div>
+          )}
+
+          {showInfo && (
+            <div className="info-modal">
+              <button className="modal-x" type="button" onClick={() => setShowInfo(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+              <h3>How to play</h3>
+              <ol className="info-list">
+                <li>Set your bet, pick a difficulty, then press <b>Go</b> to enter as a baby snake.</li>
+                <li>Each press of <b>Go</b> or <b>Space</b> crosses one lane to the next checkpoint.</li>
+                <li><b>Hold Space</b> to chain across several lanes in one go.</li>
+                <li>Every checkpoint reached raises your cash multiplier.</li>
+                <li>Cash out whenever you are safe. If a blade catches you mid-crossing, the run ends.</li>
+              </ol>
+              <p className="info-note">
+                Easy lanes are friendlier and reach far more often. Extreme pays far more per lane but rarely lets you run deep. Fake money only, no real currency.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="control-bar">
+          <div className="bet-control">
+            <span className="bar-label">Place your bet</span>
+            <div className="bet-stepper">
+              <button type="button" onClick={() => adjustStake(-1)} disabled={inRun} aria-label="Lower bet"><Minus size={16} /></button>
+              <strong>{formatMoney(stake)}</strong>
+              <button type="button" onClick={() => adjustStake(1)} disabled={inRun || stake >= balance} aria-label="Raise bet"><Plus size={16} /></button>
+            </div>
+          </div>
+
+          <div className="diff-control">
+            <span className="bar-label">Difficulty</span>
+            <div className="diff-pills">
+              {DIFF_ORDER.map((d) => (
+                <button
+                  key={d}
+                  className={`diff-pill ${d} ${difficulty === d ? "active" : ""}`}
+                  type="button"
+                  disabled={inRun}
+                  onClick={() => setDifficulty(d)}
+                >
+                  {DIFFS[d].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="action-control">
+            <button
+              className={`auto-button ${autoplay ? "on" : ""}`}
+              type="button"
+              onClick={() => setAutoplay((v) => !v)}
+            >
+              <Repeat size={16} /> Auto {autoplay ? "on" : "play"}
+            </button>
+            <button
+              className="go-button"
+              type="button"
+              onClick={goAction}
+              disabled={hud.status === "crossing" || (hud.status === "ready" && !canAfford)}
+            >
+              {hud.status === "ready" ? "Go" : hud.status === "crossing" ? "…" : "Go →"}
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Pill({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className={`pill ${accent ? "accent" : ""}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Loading } from "./modes/Loading";
 import { Menu } from "./modes/Menu";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
@@ -10,6 +11,7 @@ type Screen = "menu" | "single" | "lobby" | "match";
 const STARTING_BALANCE = 1000;
 
 export function App() {
+  const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<Screen>("menu");
   const [balance, setBalance] = useState(STARTING_BALANCE);
   const [activeTier, setActiveTier] = useState<Tier | null>(null);
@@ -23,6 +25,14 @@ export function App() {
     setActiveTier(tier);
     setScreen("match");
   }, []);
+
+  if (booting) {
+    return (
+      <main className="app-shell">
+        <Loading onDone={() => setBooting(false)} />
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
