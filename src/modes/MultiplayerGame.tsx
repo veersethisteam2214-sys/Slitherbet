@@ -1,4 +1,4 @@
-import { ArrowLeft, Crown, Receipt, RotateCcw, Trophy, Zap } from "lucide-react";
+import { ArrowLeft, Crown, RotateCcw, Trophy, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   arenaRadius,
@@ -476,11 +476,10 @@ type MultiplayerGameProps = {
   balance: number;
   onAdjustBalance: (delta: number) => void;
   onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
-  onShowBets: () => void;
   onExit: () => void;
 };
 
-export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, onShowBets, onExit }: MultiplayerGameProps) {
+export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, onExit }: MultiplayerGameProps) {
   const initialGame = useMemo(() => {
     const game = createGame(tier);
     game.phase = "countdown";
@@ -578,9 +577,6 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
           <span className="eyebrow">{tier.name}</span>
           <strong>{snapshot.eventText}</strong>
         </div>
-        <button className="ghost-button" type="button" onClick={onShowBets}>
-          <Receipt size={16} /> My Bets
-        </button>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>

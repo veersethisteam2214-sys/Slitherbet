@@ -62,18 +62,22 @@ export function Loading({ onDone, duration = 3000 }: LoadingProps) {
       const coinX = cx + (r * Math.cos(coinAngle)) / (1 + Math.sin(coinAngle) ** 2);
       const coinY = cy + (r * Math.sin(coinAngle) * Math.cos(coinAngle)) / (1 + Math.sin(coinAngle) ** 2) * 1.6;
       ctx.save();
+      ctx.translate(coinX, coinY);
+      ctx.rotate(time * 1.4);
       ctx.shadowColor = "#ffce4d";
       ctx.shadowBlur = 22;
-      ctx.fillStyle = "#ffd75e";
+      const gem = ctx.createLinearGradient(0, -8, 0, 8);
+      gem.addColorStop(0, "#fff0bd");
+      gem.addColorStop(1, "#f0a823");
+      ctx.fillStyle = gem;
       ctx.beginPath();
-      ctx.arc(coinX, coinY, 7, 0, Math.PI * 2);
+      ctx.moveTo(0, -8);
+      ctx.lineTo(7, 0);
+      ctx.lineTo(0, 8);
+      ctx.lineTo(-7, 0);
+      ctx.closePath();
       ctx.fill();
       ctx.restore();
-      ctx.fillStyle = "#a6701a";
-      ctx.font = "700 8px 'Space Grotesk', system-ui";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("$", coinX, coinY + 0.5);
 
       // body
       for (let i = trail.length - 1; i >= 0; i -= 1) {

@@ -1,68 +1,75 @@
-import { BadgeDollarSign, ChevronRight, Receipt, Swords, Target, Trophy, Users } from "lucide-react";
+import { ChevronRight, Coins, Layers, Mountain, Users } from "lucide-react";
+import { SnakeWordmark } from "../components/SnakeWordmark";
 import { formatMoney } from "../shared";
 
 type MenuProps = {
   balance: number;
+  theme: "arcade" | "neon";
   onSingle: () => void;
   onMultiplayer: () => void;
-  onShowBets: () => void;
 };
 
-export function Menu({ balance, onSingle, onMultiplayer, onShowBets }: MenuProps) {
+function BrandMark() {
+  return (
+    <svg viewBox="0 0 32 32" width="22" height="22" fill="none" aria-hidden>
+      <path
+        d="M7 22c0-4 4-5 8-5s7-1 7-4-2-4-5-4"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <circle cx="8" cy="22" r="3" fill="currentColor" />
+      <circle cx="9.4" cy="21.4" r="0.9" fill="#06231a" />
+    </svg>
+  );
+}
+
+export function Menu({ balance, theme, onSingle, onMultiplayer }: MenuProps) {
   return (
     <div className="menu-screen">
       <div className="menu-glow" aria-hidden />
       <header className="menu-topbar">
         <div className="brand-lockup">
-          <div className="brand-mark"><BadgeDollarSign size={26} /></div>
-          <div>
-            <span className="eyebrow">Skill-prize arena</span>
-            <h1 className="brand-title">SlitherBet</h1>
-          </div>
+          <div className="brand-mark"><BrandMark /></div>
+          <span className="brand-name">SlitherBet</span>
         </div>
-        <div className="menu-topbar-right">
-          <button className="ghost-button" type="button" onClick={onShowBets}>
-            <Receipt size={16} /> My Bets
-          </button>
-          <div className="wallet-chip">
-            <span className="eyebrow">Demo balance</span>
-            <strong>{formatMoney(balance)}</strong>
-          </div>
+        <div className="wallet-chip">
+          <span className="eyebrow">Play balance</span>
+          <strong>{formatMoney(balance)}</strong>
         </div>
       </header>
 
       <div className="menu-body">
         <div className="menu-hero">
-          <span className="hero-tag">Where every dot is real money</span>
-          <h2>Choose how you play.</h2>
-          <p>Sharpen your reflexes solo, or buy into a live tournament and outlast the field for a share of the pot.</p>
+          <SnakeWordmark theme={theme} />
+          <p className="hero-line">A skill arena where one slip ends the run. Pick your table.</p>
         </div>
 
         <div className="mode-grid">
           <button className="mode-card single" type="button" onClick={onSingle}>
-            <div className="mode-icon"><Target size={26} /></div>
-            <div className="mode-copy">
-              <span className="eyebrow">Solo · instant</span>
-              <h3>Single Player</h3>
-              <p>Snake Crossing. Cross lane after lane of falling blades, climb the multiplier, and cash out before one drops on you.</p>
+            <div className="mode-top">
+              <span className="mode-kicker"><Mountain size={13} /> Solo · cave run</span>
+              <span className="mode-stat">~12s a run</span>
             </div>
+            <h3>Cave Run</h3>
+            <p>Drop in as a hatchling and leap ledge to ledge through the dark. Stack the multiplier, bank it before a raptor swoops.</p>
             <ul className="mode-points">
-              <li><Trophy size={14} /> Rising multiplier</li>
-              <li><Swords size={14} /> Cash out any time</li>
+              <li><Coins size={15} /> Multiplier climbs every ledge</li>
+              <li><Layers size={15} /> Cash out the second you land</li>
             </ul>
-            <span className="mode-cta">Play now <ChevronRight size={16} /></span>
+            <span className="mode-cta">Enter the cave <ChevronRight size={16} /></span>
           </button>
 
           <button className="mode-card multi" type="button" onClick={onMultiplayer}>
-            <div className="mode-icon"><Users size={26} /></div>
-            <div className="mode-copy">
-              <span className="eyebrow">Live · last snake standing</span>
-              <h3>Multiplayer</h3>
-              <p>Browse buy-in tournaments, register for a table, and battle up to 100 snakes for the top-six payout ladder.</p>
+            <div className="mode-top">
+              <span className="mode-kicker"><Users size={13} /> Live · last snake standing</span>
+              <span className="mode-stat">Up to 100 seats</span>
             </div>
+            <h3>Tournaments</h3>
+            <p>Buy into a scheduled table and fight the field in a single arena. Outlast everyone — the final six split the pot.</p>
             <ul className="mode-points">
-              <li><Trophy size={14} /> Top-6 prize pool</li>
-              <li><Users size={14} /> Up to 100 players</li>
+              <li><Coins size={15} /> Top-six payout ladder</li>
+              <li><Users size={15} /> Snake-vs-snake, no respawns</li>
             </ul>
             <span className="mode-cta">Browse tables <ChevronRight size={16} /></span>
           </button>

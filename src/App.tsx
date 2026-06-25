@@ -129,9 +129,9 @@ export function App() {
       {screen === "menu" && (
         <Menu
           balance={balance}
+          theme={theme}
           onSingle={() => setScreen("single")}
           onMultiplayer={() => setScreen("lobby")}
-          onShowBets={openBets}
         />
       )}
 
@@ -142,7 +142,6 @@ export function App() {
           theme={theme}
           onAdjustBalance={adjustBalance}
           onRecordBet={recordBet}
-          onShowBets={openBets}
           onExit={() => setScreen("menu")}
         />
       )}
@@ -161,7 +160,6 @@ export function App() {
           balance={balance}
           onAdjustBalance={adjustBalance}
           onRecordBet={recordBet}
-          onShowBets={openBets}
           onExit={() => setScreen("lobby")}
         />
       )}

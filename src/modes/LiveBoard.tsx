@@ -57,7 +57,7 @@ export function LiveBoard({ bets }: { bets: BetRecord[] }) {
         id: `you-${b.id}`,
         name: "You",
         isYou: true,
-        label: b.label.replace("Snake Crossing · ", ""),
+        label: b.label.replace("Cave Run · ", ""),
         stake: b.stake,
         multiplier: b.multiplier ?? 0,
         payout: b.payout,
@@ -127,7 +127,7 @@ export function LiveBoard({ bets }: { bets: BetRecord[] }) {
           <ul className="lb-feed">
             {myBest.map((b) => (
               <li key={b.id} className="you">
-                <span className="lb-name">{b.label.replace("Snake Crossing · ", "")}</span>
+                <span className="lb-name">{b.label.replace("Cave Run · ", "")}</span>
                 <span className="lb-mid">{(b.multiplier ?? 0).toFixed(2)}x</span>
                 <span className="lb-amt win">{formatMoney(b.payout)}</span>
               </li>

@@ -1,4 +1,4 @@
-import { ArrowLeft, Info, Minus, Palette, Play, Plus, Receipt, RefreshCw, Repeat, Skull, X } from "lucide-react";
+import { ArrowLeft, Info, Minus, Palette, Play, Plus, RefreshCw, Repeat, Skull, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "../audio";
 import { formatMoney, rand, type BetRecord } from "../shared";
@@ -210,75 +210,175 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawKnife(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, rot: number, danger: boolean) {
+// A diving cave raptor. Local space: beak points DOWN (+y), tail UP (-y).
+function drawBird(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, rot: number, danger: boolean, flap: number) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
   ctx.scale(scale, scale);
 
-  ctx.globalAlpha = 0.2;
-  ctx.fillStyle = danger ? "rgba(255,80,80,0.6)" : "rgba(180,210,255,0.6)";
-  roundRect(ctx, -2, -78, 4, 30, 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  const wing = Math.sin(flap * 11) * 0.55;
+  const dark = danger ? "#3a0a10" : "#16121f";
+  const lite = danger ? "#7d1622" : "#3a3052";
 
-  const pommel = ctx.createLinearGradient(0, -50, 0, -44);
-  pommel.addColorStop(0, "#d8b777");
-  pommel.addColorStop(1, "#9a7740");
-  ctx.fillStyle = pommel;
-  ctx.beginPath();
-  ctx.arc(0, -47, 4.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  const handle = ctx.createLinearGradient(-5, 0, 5, 0);
-  handle.addColorStop(0, "#3a2415");
-  handle.addColorStop(0.5, "#7a4d2c");
-  handle.addColorStop(1, "#3a2415");
-  ctx.fillStyle = handle;
-  roundRect(ctx, -5, -46, 10, 22, 4);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.32)";
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 3; i += 1) {
-    ctx.beginPath();
-    ctx.moveTo(-5, -42 + i * 6);
-    ctx.lineTo(5, -42 + i * 6);
-    ctx.stroke();
+  if (danger) {
+    ctx.shadowColor = "rgba(255,60,60,0.85)";
+    ctx.shadowBlur = 26;
   }
 
-  const guard = ctx.createLinearGradient(0, -26, 0, -19);
-  guard.addColorStop(0, "#d8c690");
-  guard.addColorStop(1, "#8c7846");
-  ctx.fillStyle = guard;
-  roundRect(ctx, -15, -25, 30, 7, 3);
-  ctx.fill();
-
-  const blade = ctx.createLinearGradient(-9, 0, 9, 0);
-  blade.addColorStop(0, "#7e8a9a");
-  blade.addColorStop(0.4, "#e9eef4");
-  blade.addColorStop(0.52, "#ffffff");
-  blade.addColorStop(0.68, "#c6d0db");
-  blade.addColorStop(1, "#646f7e");
-  ctx.shadowColor = danger ? "rgba(255,55,55,0.9)" : "rgba(150,190,255,0.4)";
-  ctx.shadowBlur = danger ? 22 : 8;
-  ctx.fillStyle = blade;
-  ctx.beginPath();
-  ctx.moveTo(-8, -18);
-  ctx.lineTo(8, -18);
-  ctx.lineTo(6, 18);
-  ctx.lineTo(0, 36);
-  ctx.lineTo(-6, 18);
-  ctx.closePath();
-  ctx.fill();
+  const wingGrad = ctx.createLinearGradient(0, -16, 0, 8);
+  wingGrad.addColorStop(0, lite);
+  wingGrad.addColorStop(1, dark);
+  ctx.fillStyle = wingGrad;
+  for (const dir of [-1, 1]) {
+    ctx.save();
+    ctx.scale(dir, 1);
+    ctx.rotate(-0.45 - wing);
+    ctx.beginPath();
+    ctx.moveTo(0, -2);
+    ctx.quadraticCurveTo(20, -16, 42, -6);
+    ctx.quadraticCurveTo(24, -2, 6, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 1.3;
+  const bodyGrad = ctx.createLinearGradient(0, -14, 0, 16);
+  bodyGrad.addColorStop(0, lite);
+  bodyGrad.addColorStop(1, dark);
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.moveTo(-1.5, -15);
-  ctx.lineTo(-0.5, 16);
-  ctx.stroke();
+  ctx.ellipse(0, 0, 7.5, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(-4, -12);
+  ctx.lineTo(4, -12);
+  ctx.lineTo(0, -22);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(0, 11, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = danger ? "#ffcf4d" : "#e0a93a";
+  ctx.beginPath();
+  ctx.moveTo(-3, 14);
+  ctx.lineTo(3, 14);
+  ctx.lineTo(0, 24);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = danger ? "#ff3b3b" : "#ffd27a";
+  ctx.beginPath();
+  ctx.arc(-2.4, 10, 1.5, 0, Math.PI * 2);
+  ctx.arc(2.4, 10, 1.5, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
+}
+
+function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, up: boolean, tint: string) {
+  const dir = up ? -1 : 1;
+  ctx.beginPath();
+  ctx.moveTo(x - h * 0.22, y);
+  ctx.lineTo(x + h * 0.22, y);
+  ctx.lineTo(x + h * 0.05, y + h * dir);
+  ctx.lineTo(x - h * 0.05, y + h * dir);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(x, y, x, y + h * dir);
+  g.addColorStop(0, tint);
+  g.addColorStop(1, "rgba(10,8,18,0.2)");
+  ctx.fillStyle = g;
+  ctx.fill();
+}
+
+function drawPlatform(ctx: CanvasRenderingContext2D, cx: number, laneY: number, pw: number, neon: boolean) {
+  const top = laneY + 12;
+  const hgt = 26;
+  const g = ctx.createLinearGradient(0, top, 0, top + hgt);
+  g.addColorStop(0, neon ? "#241a40" : "#2c2438");
+  g.addColorStop(1, neon ? "#0d0a1c" : "#140f1b");
+  ctx.fillStyle = g;
+  roundRect(ctx, cx - pw / 2, top, pw, hgt, 8);
+  ctx.fill();
+  ctx.strokeStyle = neon ? "rgba(41,240,255,0.5)" : "rgba(120,255,224,0.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - pw / 2 + 7, top + 1.5);
+  ctx.lineTo(cx + pw / 2 - 7, top + 1.5);
+  ctx.stroke();
+}
+
+function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: number, laneY: number, neon: boolean) {
+  const w = rect.width;
+  const h = rect.height;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, neon ? "#0a0518" : "#0d0813");
+  bg.addColorStop(0.5, neon ? "#08060f" : "#0a0a15");
+  bg.addColorStop(1, neon ? "#040308" : "#06050a");
+  ctx.fillStyle = bg;
+  ctx.fillRect(-20, -20, w + 40, h + 40);
+
+  const ceilY = Math.max(54, laneY - 150);
+  const floorY = Math.min(h - 44, laneY + 168);
+  const rock = neon ? "#0f0a20" : "#120c1a";
+  const rockEdge = neon ? "#1d1640" : "#1c1528";
+  const tile = 72;
+  const first = Math.floor(camX / tile) - 1;
+  const count = Math.ceil(w / tile) + 3;
+
+  ctx.fillStyle = rock;
+  ctx.fillRect(-20, -20, w + 40, ceilY + 20);
+  for (let i = 0; i < count; i += 1) {
+    const idx = first + i;
+    const sx = idx * tile - camX;
+    const len = 16 + Math.abs(Math.sin(idx * 1.3)) * 42;
+    ctx.fillStyle = rockEdge;
+    ctx.beginPath();
+    ctx.moveTo(sx - 12, ceilY);
+    ctx.lineTo(sx + 12, ceilY);
+    ctx.lineTo(sx, ceilY + len);
+    ctx.closePath();
+    ctx.fill();
+    if (idx % 4 === 0) {
+      ctx.save();
+      ctx.shadowColor = neon ? "#29f0ff" : "#63ffe0";
+      ctx.shadowBlur = 12;
+      drawCrystal(ctx, sx, ceilY + len, 15, false, neon ? "rgba(41,240,255,0.85)" : "rgba(99,255,224,0.8)");
+      ctx.restore();
+    }
+  }
+
+  ctx.fillStyle = rock;
+  ctx.fillRect(-20, floorY, w + 40, h - floorY + 20);
+  for (let i = 0; i < count; i += 1) {
+    const idx = first + i;
+    const sx = idx * tile - camX;
+    const len = 18 + Math.abs(Math.cos(idx * 1.7)) * 48;
+    ctx.fillStyle = rockEdge;
+    ctx.beginPath();
+    ctx.moveTo(sx - 13, floorY);
+    ctx.lineTo(sx + 13, floorY);
+    ctx.lineTo(sx, floorY - len);
+    ctx.closePath();
+    ctx.fill();
+    if (idx % 5 === 0) {
+      ctx.save();
+      ctx.shadowColor = neon ? "#ff39c0" : "#9b7bff";
+      ctx.shadowBlur = 12;
+      drawCrystal(ctx, sx, floorY - len, 17, true, neon ? "rgba(255,57,192,0.85)" : "rgba(155,123,255,0.8)");
+      ctx.restore();
+    }
+  }
+
+  const vg = ctx.createRadialGradient(w / 2, laneY, h * 0.2, w / 2, laneY, h * 0.85);
+  vg.addColorStop(0, "transparent");
+  vg.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, w, h);
 }
 
 function drawSnake(
@@ -400,74 +500,30 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
   const diff = DIFFS[state.difficulty];
   const neon = theme === "neon";
 
-  const pal = neon
-    ? { roadTop: "#11141d", roadMid: "#0d1019", roadBot: "#080a11", lane: "rgba(99, 245, 255, 0.6)", curbTop: "#13202a", curbBot: "#0c1620", curbEdge: "#37e0c0" }
-    : { roadTop: "#5b6675", roadMid: "#4c5765", roadBot: "#3e4855", lane: "rgba(255, 209, 71, 0.85)", curbTop: "#57b65a", curbBot: "#3f9a45", curbEdge: "rgba(255,255,255,0.5)" };
-
   const shakeX = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
   const shakeY = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
   ctx.save();
   ctx.translate(shakeX, shakeY);
 
-  const road = ctx.createLinearGradient(0, 0, 0, rect.height);
-  road.addColorStop(0, pal.roadTop);
-  road.addColorStop(0.5, pal.roadMid);
-  road.addColorStop(1, pal.roadBot);
-  ctx.fillStyle = road;
-  ctx.fillRect(-20, -20, rect.width + 40, rect.height + 40);
-
-  const curbEdge = screenX(levelX(0) + STEP * 0.5);
-  if (curbEdge > -20) {
-    const curb = ctx.createLinearGradient(0, 0, 0, rect.height);
-    curb.addColorStop(0, pal.curbTop);
-    curb.addColorStop(1, pal.curbBot);
-    ctx.fillStyle = curb;
-    ctx.fillRect(-20, -20, curbEdge + 20, rect.height + 40);
-    ctx.fillStyle = pal.curbEdge;
-    ctx.fillRect(curbEdge - 4, -20, 4, rect.height + 40);
-    if (!neon) {
-      ctx.fillStyle = "rgba(20,60,25,0.35)";
-      for (let gy = 0; gy < rect.height; gy += 46) {
-        const gx = (gy * 1.7) % Math.max(20, curbEdge);
-        ctx.fillRect(gx, gy + (gx % 14), 3, 9);
-      }
-    }
-    ctx.fillStyle = neon ? "rgba(99,245,255,0.7)" : "rgba(255,255,255,0.85)";
-    ctx.textAlign = "center";
-    ctx.font = "800 12px 'Space Grotesk', Inter, system-ui";
-    ctx.save();
-    ctx.translate(curbEdge / 2, laneY + 4);
-    ctx.fillText("START", 0, 0);
-    ctx.restore();
-  }
+  drawCaveBackground(ctx, rect, state.camX, laneY, neon);
 
   const firstLane = Math.max(0, Math.floor(state.camX / STEP) - 1);
   const lastLane = Math.min(diff.lanes, firstLane + Math.ceil(rect.width / STEP) + 2);
 
-  ctx.strokeStyle = pal.lane;
-  ctx.lineWidth = neon ? 3 : 5;
-  if (neon) ctx.setLineDash([14, 22]);
-  else ctx.setLineDash([22, 20]);
-  for (let n = firstLane; n <= lastLane + 1; n += 1) {
-    const dividerX = screenX(levelX(n) - STEP / 2);
-    if (dividerX < curbEdge - 4 || dividerX > rect.width + 10) continue;
-    ctx.beginPath();
-    ctx.moveTo(dividerX, -10);
-    ctx.lineTo(dividerX, rect.height + 10);
-    ctx.stroke();
-  }
-  ctx.setLineDash([]);
-
-  for (const a of state.ambient) {
-    const ax = screenX(levelX(a.gap) + STEP * 0.5);
-    if (ax < -40 || ax > rect.width + 40) continue;
-    drawKnife(ctx, ax, a.y, a.size, a.rot, false);
-  }
-
   for (let n = firstLane; n <= lastLane; n += 1) {
-    if (n < 1) continue;
+    if (n < 0) continue;
     const cx = screenX(levelX(n));
-    if (cx < -COIN_R * 2 || cx > rect.width + COIN_R * 2) continue;
+    if (cx < -STEP || cx > rect.width + STEP) continue;
+
+    drawPlatform(ctx, cx, laneY, STEP * 0.6, neon);
+
+    if (n === 0) {
+      ctx.fillStyle = neon ? "rgba(41,240,255,0.85)" : "rgba(99,255,224,0.85)";
+      ctx.textAlign = "center";
+      ctx.font = "800 12px 'Space Grotesk', Inter, system-ui";
+      ctx.fillText("START", cx, laneY - 34);
+      continue;
+    }
 
     const passed = n <= state.level;
     const isNext = n === (state.status === "crossing" ? state.fromLevel + 1 : state.level + 1);
@@ -517,25 +573,30 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
     ctx.fillText(formatMoney(state.stake * multAt(n, diff.survive)), cx, laneY + r + 16);
   }
 
+  for (const a of state.ambient) {
+    const ax = screenX(levelX(a.gap) + STEP * 0.5);
+    if (ax < -50 || ax > rect.width + 50) continue;
+    drawBird(ctx, ax, a.y, a.size * 1.25, a.rot * 0.4, false, state.wiggle + a.gap);
+  }
+
   const headX = screenX(state.snakeWX);
   const dead = state.status === "dead";
   const amp = state.status === "crossing" ? 5.5 : 3;
   drawSnake(ctx, headX, laneY, state.targetSegments, snakeColor, state.wiggle, amp, dead);
 
   if (state.status === "crossing" || state.status === "dead") {
-    const gapCenter = screenX(levelX(state.fromLevel) + STEP * 0.55);
-    let bladeY = -80;
+    const diveX = screenX(state.snakeWX);
+    let birdY = -120;
     let show = false;
-    const restY = laneY - 50;
     if (!state.crossSurvive && state.chopFired) {
       const p = Math.min(1, state.chopAnim / CHOP_TIME);
-      bladeY = -120 + (restY + 120) * p;
+      birdY = -120 + (laneY + 120) * p;
       show = true;
     } else if (dead && !state.crossSurvive) {
-      bladeY = restY;
+      birdY = laneY;
       show = true;
     }
-    if (show) drawKnife(ctx, gapCenter, bladeY, 1.6, 0, true);
+    if (show) drawBird(ctx, diveX, birdY, 1.8, 0, true, state.wiggle);
   }
 
   for (const burst of state.bursts) {
@@ -573,11 +634,10 @@ type SinglePlayerGameProps = {
   theme: Theme;
   onAdjustBalance: (delta: number) => void;
   onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
-  onShowBets: () => void;
   onExit: () => void;
 };
 
-export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onRecordBet, onShowBets, onExit }: SinglePlayerGameProps) {
+export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onRecordBet, onExit }: SinglePlayerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<SPState>(createState(1, "easy"));
   const holdingRef = useRef(false);
@@ -645,7 +705,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
     audio.play("cash");
     onRecordBet({
       mode: "single",
-      label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
+      label: `Cave Run · ${DIFFS[s.difficulty].label}`,
       stake: s.stake,
       multiplier: mult,
       payout: s.result,
@@ -678,7 +738,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
         audio.play("death");
         onRecordBet({
           mode: "single",
-          label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
+          label: `Cave Run · ${DIFFS[s.difficulty].label}`,
           stake: s.stake,
           multiplier: multAt(s.level, DIFFS[s.difficulty].survive),
           payout: 0,
@@ -776,11 +836,8 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
         </button>
         <div className="match-title">
           <span className="eyebrow">Single player</span>
-          <strong>Snake Crossing</strong>
+          <strong>Cave Run</strong>
         </div>
-        <button className="ghost-button" type="button" onClick={onShowBets}>
-          <Receipt size={16} /> My Bets
-        </button>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>
@@ -858,8 +915,8 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
               {hud.status === "dead" ? (
                 <>
                   <div className="end-icon lose"><Skull size={30} /></div>
-                  <h3>Chopped!</h3>
-                  <p>A blade dropped mid-crossing. You lost {formatMoney(stake)}.</p>
+                  <h3>Snatched!</h3>
+                  <p>A raptor dove out of the dark mid-crossing. You lost {formatMoney(stake)}.</p>
                   <p className="end-sub">Reached level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
                 </>
               ) : (
@@ -883,16 +940,16 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
               <button className="modal-x" type="button" onClick={() => setShowInfo(false)} aria-label="Close">
                 <X size={18} />
               </button>
-              <h3>How to play</h3>
+              <h3>How the cave works</h3>
               <ol className="info-list">
-                <li>Set your bet, pick a difficulty, then press <b>Go</b> to enter as a baby snake.</li>
-                <li>Each press of <b>Go</b> or <b>Space</b> crosses one lane to the next checkpoint.</li>
-                <li><b>Hold Space</b> to chain across several lanes in one go.</li>
-                <li>Every checkpoint reached raises your cash multiplier.</li>
-                <li>Cash out whenever you are safe. If a blade catches you mid-crossing, the run ends.</li>
+                <li>Set your stake, pick a risk tier, then press <b>Go</b> to drop in as a hatchling.</li>
+                <li>Each <b>Go</b> or <b>Space</b> tap leaps one ledge deeper into the cave.</li>
+                <li><b>Hold Space</b> to chain several leaps in a single dash.</li>
+                <li>Every ledge you land raises your cash multiplier.</li>
+                <li>Bank it whenever you're perched. If a raptor catches you mid-leap, the run is over.</li>
               </ol>
               <p className="info-note">
-                Easy lanes are friendlier and reach far more often. Extreme pays far more per lane but rarely lets you run deep. Fake money only, no real currency.
+                Lower risk reaches the deep ledges far more often. Higher risk pays more per ledge but rarely lets you run deep. Play money only — no real currency.
               </p>
             </div>
           )}
