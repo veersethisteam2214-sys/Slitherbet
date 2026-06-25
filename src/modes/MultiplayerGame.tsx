@@ -1,4 +1,4 @@
-import { ArrowLeft, Crown, RotateCcw, Trophy, Zap } from "lucide-react";
+import { ArrowLeft, Crown, Receipt, RotateCcw, Trophy, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   arenaRadius,
@@ -15,6 +15,7 @@ import {
   turnToward,
   type Dot,
   type Phase,
+  type BetRecord,
   type Segment,
   type Snake,
   type Tier,
@@ -474,10 +475,12 @@ type MultiplayerGameProps = {
   tier: Tier;
   balance: number;
   onAdjustBalance: (delta: number) => void;
+  onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
+  onShowBets: () => void;
   onExit: () => void;
 };
 
-export function MultiplayerGame({ tier, balance, onAdjustBalance, onExit }: MultiplayerGameProps) {
+export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, onShowBets, onExit }: MultiplayerGameProps) {
   const initialGame = useMemo(() => {
     const game = createGame(tier);
     game.phase = "countdown";
@@ -516,6 +519,13 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onExit }: Mult
         game.settled = true;
         const payout = game.lastPayouts.find((p) => p.name === "You");
         if (payout) onAdjustBalance(payout.amount);
+        onRecordBet({
+          mode: "multiplayer",
+          label: tier.name,
+          stake: tier.buyIn,
+          payout: payout?.amount ?? 0,
+          outcome: payout ? "win" : "loss",
+        });
       }
       const nextSnapshot = buildSnapshot(game);
       setSnapshot(nextSnapshot);
@@ -526,7 +536,7 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onExit }: Mult
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [tier, onAdjustBalance]);
+  }, [tier, onAdjustBalance, onRecordBet]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -568,6 +578,9 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onExit }: Mult
           <span className="eyebrow">{tier.name}</span>
           <strong>{snapshot.eventText}</strong>
         </div>
+        <button className="ghost-button" type="button" onClick={onShowBets}>
+          <Receipt size={16} /> My Bets
+        </button>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>

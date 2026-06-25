@@ -1,6 +1,6 @@
-import { ArrowLeft, Info, Minus, Palette, Play, Plus, RefreshCw, Repeat, Skull, X } from "lucide-react";
+import { ArrowLeft, Info, Minus, Palette, Play, Plus, Receipt, RefreshCw, Repeat, Skull, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatMoney, rand } from "../shared";
+import { formatMoney, rand, type BetRecord } from "../shared";
 
 type Status = "ready" | "safe" | "crossing" | "dead" | "cashed";
 type Difficulty = "easy" | "medium" | "hard" | "extreme";
@@ -58,6 +58,7 @@ type SPState = {
   ambient: Ambient[];
   spawnTimer: number;
   bursts: Burst[];
+  recorded: boolean;
 };
 
 function multAt(level: number, survive: number) {
@@ -115,6 +116,7 @@ function createState(stake: number, difficulty: Difficulty): SPState {
     ambient: [],
     spawnTimer: 0,
     bursts: [],
+    recorded: false,
   };
 }
 
@@ -541,10 +543,12 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
 type SinglePlayerGameProps = {
   balance: number;
   onAdjustBalance: (delta: number) => void;
+  onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
+  onShowBets: () => void;
   onExit: () => void;
 };
 
-export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePlayerGameProps) {
+export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShowBets, onExit }: SinglePlayerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<SPState>(createState(1, "easy"));
   const holdingRef = useRef(false);
@@ -593,11 +597,21 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
   const cashOut = useCallback(() => {
     const s = stateRef.current;
     if (s.status !== "safe" || s.level < 1) return;
-    s.result = s.stake * multAt(s.level, DIFFS[s.difficulty].survive);
+    const mult = multAt(s.level, DIFFS[s.difficulty].survive);
+    s.result = s.stake * mult;
     s.status = "cashed";
+    s.recorded = true;
     holdingRef.current = false;
     onAdjustBalance(s.result);
-  }, [onAdjustBalance]);
+    onRecordBet({
+      mode: "single",
+      label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
+      stake: s.stake,
+      multiplier: mult,
+      payout: s.result,
+      outcome: "win",
+    });
+  }, [onAdjustBalance, onRecordBet]);
 
   const closeEnd = useCallback(() => {
     stateRef.current = createState(stake, difficulty);
@@ -615,6 +629,17 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
       }
 
       const s = stateRef.current;
+      if (s.status === "dead" && !s.recorded) {
+        s.recorded = true;
+        onRecordBet({
+          mode: "single",
+          label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
+          stake: s.stake,
+          multiplier: multAt(s.level, DIFFS[s.difficulty].survive),
+          payout: 0,
+          outcome: "loss",
+        });
+      }
       if (autoplayRef.current) {
         autoTimerRef.current -= dt;
         if (autoTimerRef.current <= 0) {
@@ -655,7 +680,7 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [balance, startRun, beginCross, cashOut]);
+  }, [balance, startRun, beginCross, cashOut, onRecordBet]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -708,6 +733,9 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onExit }: SinglePla
           <span className="eyebrow">Single player</span>
           <strong>Snake Crossing</strong>
         </div>
+        <button className="ghost-button" type="button" onClick={onShowBets}>
+          <Receipt size={16} /> My Bets
+        </button>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>

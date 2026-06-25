@@ -1,13 +1,14 @@
-import { BadgeDollarSign, ChevronRight, Swords, Target, Trophy, Users } from "lucide-react";
+import { BadgeDollarSign, ChevronRight, Receipt, Swords, Target, Trophy, Users } from "lucide-react";
 import { formatMoney } from "../shared";
 
 type MenuProps = {
   balance: number;
   onSingle: () => void;
   onMultiplayer: () => void;
+  onShowBets: () => void;
 };
 
-export function Menu({ balance, onSingle, onMultiplayer }: MenuProps) {
+export function Menu({ balance, onSingle, onMultiplayer, onShowBets }: MenuProps) {
   return (
     <div className="menu-screen">
       <div className="menu-glow" aria-hidden />
@@ -19,9 +20,14 @@ export function Menu({ balance, onSingle, onMultiplayer }: MenuProps) {
             <h1 className="brand-title">SlitherBet</h1>
           </div>
         </div>
-        <div className="wallet-chip">
-          <span className="eyebrow">Demo balance</span>
-          <strong>{formatMoney(balance)}</strong>
+        <div className="menu-topbar-right">
+          <button className="ghost-button" type="button" onClick={onShowBets}>
+            <Receipt size={16} /> My Bets
+          </button>
+          <div className="wallet-chip">
+            <span className="eyebrow">Demo balance</span>
+            <strong>{formatMoney(balance)}</strong>
+          </div>
         </div>
       </header>
 
@@ -38,7 +44,7 @@ export function Menu({ balance, onSingle, onMultiplayer }: MenuProps) {
             <div className="mode-copy">
               <span className="eyebrow">Solo · instant</span>
               <h3>Single Player</h3>
-              <p>Knife Gauntlet. Dodge falling blades, grow your snake, and cash out before your luck runs out.</p>
+              <p>Snake Crossing. Cross lane after lane of falling blades, climb the multiplier, and cash out before one drops on you.</p>
             </div>
             <ul className="mode-points">
               <li><Trophy size={14} /> Rising multiplier</li>

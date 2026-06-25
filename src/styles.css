@@ -1018,6 +1018,108 @@ h1 {
 .go-button:hover:not(:disabled) { transform: translateY(-2px); }
 .go-button:disabled { filter: grayscale(0.7) brightness(0.8); cursor: not-allowed; box-shadow: none; }
 
+/* ---------- My Bets ---------- */
+.menu-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bets-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(3, 8, 11, 0.6);
+  backdrop-filter: blur(6px);
+  animation: fade 180ms ease;
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.bets-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  height: 100%;
+  padding: 20px;
+  background: linear-gradient(180deg, #0c1820, #070f14);
+  border-left: 1px solid rgba(99, 255, 224, 0.18);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, 0.6);
+  animation: slidein 240ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes slidein { from { transform: translateX(40px); opacity: 0.4; } to { transform: translateX(0); opacity: 1; } }
+.bets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.bets-title { display: flex; align-items: center; gap: 9px; color: var(--teal); }
+.bets-title h3 { font-family: "Space Grotesk", Inter, system-ui; font-size: 1.35rem; color: #fff; }
+.modal-x.static { position: static; }
+
+.bets-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.bets-summary div {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+}
+.bets-summary span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.bets-summary strong { font-size: 1.1rem; font-family: "Space Grotesk", Inter, system-ui; }
+.bets-summary .pos strong { color: #45e08a; }
+.bets-summary .neg strong { color: #ff6b6b; }
+
+.bets-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 30px;
+}
+.bets-empty svg { color: rgba(99, 255, 224, 0.4); }
+
+.bets-list {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bets-list li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+.bet-dot { width: 10px; height: 10px; border-radius: 50%; }
+.bet-dot.win { background: #45e08a; box-shadow: 0 0 10px rgba(69, 224, 138, 0.6); }
+.bet-dot.loss { background: #ff6b6b; box-shadow: 0 0 10px rgba(255, 107, 107, 0.5); }
+.bet-main { min-width: 0; }
+.bet-main strong { display: block; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bet-main small { color: var(--muted); font-size: 0.76rem; }
+.bet-money { text-align: right; }
+.bet-money strong { display: block; font-family: "Space Grotesk", Inter, system-ui; font-size: 1rem; }
+.bet-money strong.pos { color: #45e08a; }
+.bet-money strong.neg { color: #ff6b6b; }
+.bet-money small { color: var(--muted); font-size: 0.72rem; }
+
 /* ---------- Lobby ---------- */
 .lobby-layout {
   flex: 1;

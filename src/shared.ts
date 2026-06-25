@@ -49,6 +49,17 @@ export type Snake = {
   shield: number;
 };
 
+export type BetRecord = {
+  id: number;
+  mode: "single" | "multiplayer";
+  label: string;
+  stake: number;
+  multiplier?: number;
+  payout: number;
+  outcome: "win" | "loss";
+  time: number;
+};
+
 export const payoutPercents = [0.42, 0.24, 0.14, 0.09, 0.065, 0.045];
 export const arenaRadius = 3300;
 export const baseDotCount = 980;
