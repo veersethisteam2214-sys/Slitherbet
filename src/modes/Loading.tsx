@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { drawWordmarkFrame } from "../components/wordmarkCanvas";
 
 type LoadingProps = {
   onDone: () => void;
   duration?: number;
 };
 
-const phases = ["Coiling up", "Counting the pot", "Raptors circling", "Slither time"];
+const phases = ["Warming the arena", "Shuffling the deck", "Raptors on patrol", "You're in"];
 
-export function Loading({ onDone, duration = 3000 }: LoadingProps) {
+export function Loading({ onDone, duration = 3200 }: LoadingProps) {
   const [progress, setProgress] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef(0);
 
   useEffect(() => {
@@ -17,157 +19,87 @@ export function Loading({ onDone, duration = 3000 }: LoadingProps) {
     let raf = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
+      const eased = 1 - Math.pow(1 - t, 2.4);
       progressRef.current = eased;
       setProgress(eased);
       if (t < 1) raf = requestAnimationFrame(tick);
-      else setTimeout(onDone, 260);
+      else setTimeout(onDone, 320);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [duration, onDone]);
 
   useEffect(() => {
+    const wrap = wrapRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!wrap || !canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    let raf = 0;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = 320;
-    const H = 320;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    ctx.scale(dpr, dpr);
 
     const trail: { x: number; y: number }[] = [];
+    let raf = 0;
+    let W = 0;
+    let H = 0;
     const start = performance.now();
 
+    const resize = () => {
+      W = wrap.clientWidth;
+      H = wrap.clientHeight;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
     const render = (now: number) => {
-      const time = (now - start) / 1000;
-      const cx = W / 2;
-      const cy = H / 2;
-      // figure-eight (lemniscate-ish) head path
-      const r = 96;
-      const hx = cx + (r * Math.cos(time * 1.6)) / (1 + Math.sin(time * 1.6) ** 2);
-      const hy = cy + (r * Math.sin(time * 1.6) * Math.cos(time * 1.6)) / (1 + Math.sin(time * 1.6) ** 2) * 1.6;
-      trail.unshift({ x: hx, y: hy });
-      const maxLen = Math.round(26 + progressRef.current * 80);
-      if (trail.length > maxLen) trail.length = maxLen;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // glowing prize coin that the snake chases
-      const coinAngle = time * 1.6 + 0.9;
-      const coinX = cx + (r * Math.cos(coinAngle)) / (1 + Math.sin(coinAngle) ** 2);
-      const coinY = cy + (r * Math.sin(coinAngle) * Math.cos(coinAngle)) / (1 + Math.sin(coinAngle) ** 2) * 1.6;
-      ctx.save();
-      ctx.translate(coinX, coinY);
-      ctx.rotate(time * 1.4);
-      ctx.shadowColor = "#ffce4d";
-      ctx.shadowBlur = 22;
-      const gem = ctx.createLinearGradient(0, -8, 0, 8);
-      gem.addColorStop(0, "#fff0bd");
-      gem.addColorStop(1, "#f0a823");
-      ctx.fillStyle = gem;
-      ctx.beginPath();
-      ctx.moveTo(0, -8);
-      ctx.lineTo(7, 0);
-      ctx.lineTo(0, 8);
-      ctx.lineTo(-7, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      // body
-      for (let i = trail.length - 1; i >= 0; i -= 1) {
-        const p = trail[i];
-        const f = i / trail.length;
-        const rad = Math.max(2.5, 13 * (1 - f * 0.85));
-        const hue = 150 - f * 30;
-        ctx.save();
-        ctx.shadowColor = `hsla(${hue}, 90%, 55%, 0.7)`;
-        ctx.shadowBlur = 14;
-        const grad = ctx.createRadialGradient(p.x - rad * 0.3, p.y - rad * 0.3, 1, p.x, p.y, rad);
-        grad.addColorStop(0, `hsl(${hue}, 90%, 70%)`);
-        grad.addColorStop(1, `hsl(${hue}, 85%, 42%)`);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // head with eyes + tongue
-      const head = trail[0];
-      const aim = trail[3] || trail[0];
-      const ang = Math.atan2(head.y - aim.y, head.x - aim.x);
-      ctx.save();
-      ctx.translate(head.x, head.y);
-      ctx.rotate(ang);
-      ctx.shadowColor = "rgba(80, 245, 170, 0.8)";
-      ctx.shadowBlur = 16;
-      const hg = ctx.createRadialGradient(-4, -4, 1, 0, 0, 15);
-      hg.addColorStop(0, "#9bffc9");
-      hg.addColorStop(1, "#1fb874");
-      ctx.fillStyle = hg;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      // tongue
-      ctx.strokeStyle = "#ff4d6d";
-      ctx.lineWidth = 2;
-      const flick = Math.sin(time * 16) * 3;
-      ctx.beginPath();
-      ctx.moveTo(13, 0);
-      ctx.lineTo(24, 0);
-      ctx.lineTo(28, -3 + flick);
-      ctx.moveTo(24, 0);
-      ctx.lineTo(28, 3 + flick);
-      ctx.stroke();
-      // eyes
-      ctx.fillStyle = "#06231a";
-      ctx.beginPath();
-      ctx.arc(4, -5, 2.4, 0, Math.PI * 2);
-      ctx.arc(4, 5, 2.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#eafff4";
-      ctx.beginPath();
-      ctx.arc(5, -5, 1, 0, Math.PI * 2);
-      ctx.arc(5, 5, 1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
+      const t = (now - start) / 1000;
+      drawWordmarkFrame(ctx, W, H, t, "arcade", trail);
       raf = requestAnimationFrame(render);
     };
+
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(wrap);
     raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   const phase = phases[Math.min(phases.length - 1, Math.floor(progress * phases.length))];
+  const pct = Math.round(progress * 100);
 
   return (
     <div className="loading-screen">
-      <div className="loading-aurora" />
-      <div className="loading-grid" />
-      <div className="loading-core">
-        <canvas ref={canvasRef} className="loading-snake" style={{ width: 320, height: 320 }} />
-        <div className="loading-wordmark">
-          <span className="lw-slither">SLITHER</span>
-          <span className="lw-bet">BET</span>
+      <div className="loading-vignette" aria-hidden />
+      <div className="loading-noise" aria-hidden />
+
+      <div className="loading-stage">
+        <div ref={wrapRef} className="loading-wordmark-band">
+          <canvas ref={canvasRef} className="loading-wordmark-canvas" aria-hidden />
         </div>
-        <div className="loading-bar">
-          <i style={{ width: `${Math.round(progress * 100)}%` }} />
-        </div>
-        <div className="loading-meta">
-          <span>{phase}</span>
-          <span>{Math.round(progress * 100)}%</span>
-        </div>
-        <div className="loading-credit">
-          a <strong>VKbets</strong> production
+
+        <div className="loading-status">
+          <div className="loading-track">
+            <i style={{ width: `${pct}%` }} />
+          </div>
+          <div className="loading-meta">
+            <span>{phase}</span>
+            <span className="loading-pct">{pct}%</span>
+          </div>
         </div>
       </div>
+
+      <footer className="loading-footer">
+        <span className="loading-mark">SlitherBet</span>
+        <span className="loading-credit">
+          a <strong>VKbets</strong> production
+        </span>
+      </footer>
     </div>
   );
 }
