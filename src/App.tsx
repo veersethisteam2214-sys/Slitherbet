@@ -1,4 +1,7 @@
-import { useCallback, useState } from "react";
+import { Moon, Music, Receipt, Sun, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { audio } from "./audio";
+import { FloatingActionMenu } from "./components/FloatingActionMenu";
 import { BetHistory } from "./modes/BetHistory";
 import { Loading } from "./modes/Loading";
 import { Menu } from "./modes/Menu";
@@ -8,8 +11,14 @@ import { SinglePlayerGame } from "./modes/SinglePlayerGame";
 import type { BetRecord, Tier } from "./shared";
 
 type Screen = "menu" | "single" | "lobby" | "match";
+type Theme = "arcade" | "neon";
 
 const STARTING_BALANCE = 1000;
+
+function loadBool(key: string, fallback: boolean) {
+  const raw = localStorage.getItem(key);
+  return raw === null ? fallback : raw === "1";
+}
 
 export function App() {
   const [booting, setBooting] = useState(true);
@@ -18,6 +27,52 @@ export function App() {
   const [activeTier, setActiveTier] = useState<Tier | null>(null);
   const [bets, setBets] = useState<BetRecord[]>([]);
   const [showBets, setShowBets] = useState(false);
+
+  const [musicOn, setMusicOn] = useState(() => loadBool("sb_music", true));
+  const [sfxOn, setSfxOn] = useState(() => loadBool("sb_sfx", true));
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem("sb_theme") as Theme) || "arcade");
+  const gestureBound = useRef(false);
+
+  useEffect(() => {
+    audio.sfxOn = sfxOn;
+    audio.musicOn = musicOn;
+    if (gestureBound.current) return;
+    gestureBound.current = true;
+    const onGesture = () => {
+      audio.resume();
+      if (audio.musicOn) audio.startMusic();
+    };
+    window.addEventListener("pointerdown", onGesture, { once: true });
+    window.addEventListener("keydown", onGesture, { once: true });
+  }, [musicOn, sfxOn]);
+
+  const toggleMusic = useCallback(() => {
+    setMusicOn((prev) => {
+      const next = !prev;
+      localStorage.setItem("sb_music", next ? "1" : "0");
+      audio.setMusicOn(next);
+      return next;
+    });
+  }, []);
+
+  const toggleSfx = useCallback(() => {
+    setSfxOn((prev) => {
+      const next = !prev;
+      localStorage.setItem("sb_sfx", next ? "1" : "0");
+      audio.setSfxOn(next);
+      if (next) audio.play("click");
+      return next;
+    });
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next: Theme = prev === "neon" ? "arcade" : "neon";
+      localStorage.setItem("sb_theme", next);
+      audio.play("click");
+      return next;
+    });
+  }, []);
 
   const adjustBalance = useCallback((delta: number) => {
     setBalance((prev) => Math.max(0, prev + delta));
@@ -43,8 +98,34 @@ export function App() {
     );
   }
 
+  const fabOptions = [
+    {
+      label: `Music ${musicOn ? "on" : "off"}`,
+      Icon: musicOn ? <Music size={16} /> : <VolumeX size={16} />,
+      onClick: toggleMusic,
+      active: musicOn,
+    },
+    {
+      label: `Sound ${sfxOn ? "on" : "off"}`,
+      Icon: sfxOn ? <Volume2 size={16} /> : <VolumeX size={16} />,
+      onClick: toggleSfx,
+      active: sfxOn,
+    },
+    {
+      label: theme === "neon" ? "Neon mode" : "Arcade mode",
+      Icon: theme === "neon" ? <Moon size={16} /> : <Sun size={16} />,
+      onClick: toggleTheme,
+      active: theme === "neon",
+    },
+    {
+      label: "My bets",
+      Icon: <Receipt size={16} />,
+      onClick: openBets,
+    },
+  ];
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${theme === "neon" ? "theme-neon" : ""}`}>
       {screen === "menu" && (
         <Menu
           balance={balance}
@@ -57,6 +138,8 @@ export function App() {
       {screen === "single" && (
         <SinglePlayerGame
           balance={balance}
+          bets={bets}
+          theme={theme}
           onAdjustBalance={adjustBalance}
           onRecordBet={recordBet}
           onShowBets={openBets}
@@ -84,6 +167,8 @@ export function App() {
       )}
 
       {showBets && <BetHistory bets={bets} onClose={() => setShowBets(false)} />}
+
+      <FloatingActionMenu options={fabOptions} />
     </main>
   );
 }

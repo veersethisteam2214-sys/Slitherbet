@@ -1,9 +1,12 @@
 import { ArrowLeft, Info, Minus, Palette, Play, Plus, Receipt, RefreshCw, Repeat, Skull, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { audio } from "../audio";
 import { formatMoney, rand, type BetRecord } from "../shared";
+import { LiveBoard } from "./LiveBoard";
 
 type Status = "ready" | "safe" | "crossing" | "dead" | "cashed";
 type Difficulty = "easy" | "medium" | "hard" | "extreme";
+type Theme = "arcade" | "neon";
 
 type DiffConfig = { label: string; survive: number; lanes: number; autoTarget: number };
 
@@ -293,9 +296,18 @@ function drawSnake(
   const dark = dead ? "#5d6664" : shade(base, -0.32);
 
   ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  for (let i = segCount - 1; i >= 0; i -= 1) {
+    const sx = headX - i * SEG_SPACING;
+    const sy = laneY + Math.sin(wiggle * 6 - i * 0.5) * amp;
+    const t = i / segCount;
+    const r = Math.max(4.5, HEAD_R * (1 - t * 0.5));
+    ctx.beginPath();
+    ctx.ellipse(sx + 3, sy + HEAD_R + 7, r * 0.95, r * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.beginPath();
-  ctx.ellipse(headX - segCount * SEG_SPACING * 0.4, laneY + HEAD_R + 6, segCount * SEG_SPACING * 0.6 + 14, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(headX + 3, laneY + HEAD_R + 7, (HEAD_R + 2) * 0.95, (HEAD_R + 2) * 0.42, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -369,7 +381,7 @@ function drawSnake(
   }
 }
 
-function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
+function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, theme: Theme) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
@@ -386,6 +398,11 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
   const laneY = rect.height * 0.52;
   const screenX = (wx: number) => wx - state.camX;
   const diff = DIFFS[state.difficulty];
+  const neon = theme === "neon";
+
+  const pal = neon
+    ? { roadTop: "#11141d", roadMid: "#0d1019", roadBot: "#080a11", lane: "rgba(99, 245, 255, 0.6)", curbTop: "#13202a", curbBot: "#0c1620", curbEdge: "#37e0c0" }
+    : { roadTop: "#5b6675", roadMid: "#4c5765", roadBot: "#3e4855", lane: "rgba(255, 209, 71, 0.85)", curbTop: "#57b65a", curbBot: "#3f9a45", curbEdge: "rgba(255,255,255,0.5)" };
 
   const shakeX = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
   const shakeY = state.shake > 0 ? rand(-8, 8) * (state.shake / 0.6) : 0;
@@ -393,37 +410,47 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
   ctx.translate(shakeX, shakeY);
 
   const road = ctx.createLinearGradient(0, 0, 0, rect.height);
-  road.addColorStop(0, "#5b6675");
-  road.addColorStop(0.5, "#4c5765");
-  road.addColorStop(1, "#3e4855");
+  road.addColorStop(0, pal.roadTop);
+  road.addColorStop(0.5, pal.roadMid);
+  road.addColorStop(1, pal.roadBot);
   ctx.fillStyle = road;
   ctx.fillRect(-20, -20, rect.width + 40, rect.height + 40);
 
-  const grassEdge = screenX(levelX(0) - STEP * 0.5);
-  if (grassEdge > 0) {
-    const grass = ctx.createLinearGradient(0, 0, 0, rect.height);
-    grass.addColorStop(0, "#57b65a");
-    grass.addColorStop(1, "#3f9a45");
-    ctx.fillStyle = grass;
-    ctx.fillRect(-20, -20, grassEdge + 20, rect.height + 40);
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(grassEdge - 5, -20, 5, rect.height + 40);
-    ctx.fillStyle = "rgba(20,60,25,0.35)";
-    for (let gy = 0; gy < rect.height; gy += 46) {
-      const gx = (gy * 1.7) % Math.max(20, grassEdge);
-      ctx.fillRect(gx, gy + (gx % 14), 3, 9);
+  const curbEdge = screenX(levelX(0) + STEP * 0.5);
+  if (curbEdge > -20) {
+    const curb = ctx.createLinearGradient(0, 0, 0, rect.height);
+    curb.addColorStop(0, pal.curbTop);
+    curb.addColorStop(1, pal.curbBot);
+    ctx.fillStyle = curb;
+    ctx.fillRect(-20, -20, curbEdge + 20, rect.height + 40);
+    ctx.fillStyle = pal.curbEdge;
+    ctx.fillRect(curbEdge - 4, -20, 4, rect.height + 40);
+    if (!neon) {
+      ctx.fillStyle = "rgba(20,60,25,0.35)";
+      for (let gy = 0; gy < rect.height; gy += 46) {
+        const gx = (gy * 1.7) % Math.max(20, curbEdge);
+        ctx.fillRect(gx, gy + (gx % 14), 3, 9);
+      }
     }
+    ctx.fillStyle = neon ? "rgba(99,245,255,0.7)" : "rgba(255,255,255,0.85)";
+    ctx.textAlign = "center";
+    ctx.font = "800 12px 'Space Grotesk', Inter, system-ui";
+    ctx.save();
+    ctx.translate(curbEdge / 2, laneY + 4);
+    ctx.fillText("START", 0, 0);
+    ctx.restore();
   }
 
   const firstLane = Math.max(0, Math.floor(state.camX / STEP) - 1);
   const lastLane = Math.min(diff.lanes, firstLane + Math.ceil(rect.width / STEP) + 2);
 
-  ctx.strokeStyle = "rgba(255, 209, 71, 0.85)";
-  ctx.lineWidth = 5;
-  ctx.setLineDash([22, 20]);
+  ctx.strokeStyle = pal.lane;
+  ctx.lineWidth = neon ? 3 : 5;
+  if (neon) ctx.setLineDash([14, 22]);
+  else ctx.setLineDash([22, 20]);
   for (let n = firstLane; n <= lastLane + 1; n += 1) {
     const dividerX = screenX(levelX(n) - STEP / 2);
-    if (dividerX < grassEdge - 4 || dividerX > rect.width + 10) continue;
+    if (dividerX < curbEdge - 4 || dividerX > rect.width + 10) continue;
     ctx.beginPath();
     ctx.moveTo(dividerX, -10);
     ctx.lineTo(dividerX, rect.height + 10);
@@ -542,19 +569,23 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string) {
 
 type SinglePlayerGameProps = {
   balance: number;
+  bets: BetRecord[];
+  theme: Theme;
   onAdjustBalance: (delta: number) => void;
   onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
   onShowBets: () => void;
   onExit: () => void;
 };
 
-export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShowBets, onExit }: SinglePlayerGameProps) {
+export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onRecordBet, onShowBets, onExit }: SinglePlayerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<SPState>(createState(1, "easy"));
   const holdingRef = useRef(false);
   const autoplayRef = useRef(false);
   const autoTimerRef = useRef(0);
   const colorRef = useRef(SNAKE_COLORS[0].base);
+  const themeRef = useRef<Theme>(theme);
+  const prevLevelRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const lastRef = useRef<number>(performance.now());
 
@@ -580,18 +611,26 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
   useEffect(() => {
     autoplayRef.current = autoplay;
   }, [autoplay]);
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   const startRun = useCallback(() => {
     if (balance < stake) return;
     onAdjustBalance(-stake);
     holdingRef.current = false;
+    prevLevelRef.current = 0;
     const next = createState(stake, difficulty);
     next.status = "safe";
     stateRef.current = next;
+    audio.play("start");
   }, [balance, stake, difficulty, onAdjustBalance]);
 
   const beginCross = useCallback(() => {
-    if (stateRef.current.status === "safe") startCrossing(stateRef.current);
+    if (stateRef.current.status === "safe") {
+      startCrossing(stateRef.current);
+      audio.play("step");
+    }
   }, []);
 
   const cashOut = useCallback(() => {
@@ -603,6 +642,7 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
     s.recorded = true;
     holdingRef.current = false;
     onAdjustBalance(s.result);
+    audio.play("cash");
     onRecordBet({
       mode: "single",
       label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
@@ -625,12 +665,17 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
       if (canvas) {
         const r = canvas.getBoundingClientRect();
         update(stateRef.current, dt, holdingRef.current, r.width, r.height);
-        draw(canvas, stateRef.current, colorRef.current);
+        draw(canvas, stateRef.current, colorRef.current, themeRef.current);
       }
 
       const s = stateRef.current;
+      if (s.level > prevLevelRef.current) {
+        prevLevelRef.current = s.level;
+        audio.play("safe");
+      }
       if (s.status === "dead" && !s.recorded) {
         s.recorded = true;
+        audio.play("death");
         onRecordBet({
           mode: "single",
           label: `Snake Crossing · ${DIFFS[s.difficulty].label}`,
@@ -743,6 +788,8 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
       </header>
 
       <div className="cabinet">
+        <div className="cabinet-main">
+        <LiveBoard bets={bets} />
         <div className="cabinet-screen">
           <canvas
             ref={canvasRef}
@@ -826,7 +873,7 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
                 <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
                   <RefreshCw size={16} /> Try again · {formatMoney(stake)}
                 </button>
-                <button className="ghost-button" type="button" onClick={closeEnd}>Change bet</button>
+                <button className="ghost-button" type="button" onClick={closeEnd}>New bet</button>
               </div>
             </div>
           )}
@@ -850,10 +897,11 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
             </div>
           )}
         </div>
+        </div>
 
         <div className="control-bar">
           <div className="bet-control">
-            <span className="bar-label">Place your bet</span>
+            <span className="bar-label">Stake</span>
             <div className="bet-stepper">
               <button type="button" onClick={() => adjustStake(-1)} disabled={inRun} aria-label="Lower bet"><Minus size={16} /></button>
               <strong>{formatMoney(stake)}</strong>
@@ -862,7 +910,7 @@ export function SinglePlayerGame({ balance, onAdjustBalance, onRecordBet, onShow
           </div>
 
           <div className="diff-control">
-            <span className="bar-label">Difficulty</span>
+            <span className="bar-label">Risk</span>
             <div className="diff-pills">
               {DIFF_ORDER.map((d) => (
                 <button
