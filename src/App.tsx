@@ -9,12 +9,13 @@ import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
 import { SinglePlayerGame } from "./modes/SinglePlayerGame";
 import {
-  loadEquippedSkin,
-  loadOwnedSkins,
+  loadEquippedCosmetics,
+  loadOwnedCosmetics,
   loadUsername,
-  saveEquippedSkin,
-  saveOwnedSkins,
-  type SnakeSkin,
+  saveEquippedCosmetics,
+  saveOwnedCosmetics,
+  type Cosmetic,
+  type EquippedCosmetics,
 } from "./snakeSkins";
 import type { BetRecord, Tier } from "./shared";
 
@@ -37,8 +38,8 @@ export function App() {
   const [showBets, setShowBets] = useState(false);
 
   const [username, setUsername] = useState(loadUsername);
-  const [ownedSkins, setOwnedSkins] = useState(loadOwnedSkins);
-  const [equippedSkin, setEquippedSkin] = useState(loadEquippedSkin);
+  const [ownedCosmetics, setOwnedCosmetics] = useState(loadOwnedCosmetics);
+  const [equippedCosmetics, setEquippedCosmetics] = useState(loadEquippedCosmetics);
 
   const [musicOn, setMusicOn] = useState(() => loadBool("sb_music", true));
   const [sfxOn, setSfxOn] = useState(() => loadBool("sb_sfx", true));
@@ -102,25 +103,46 @@ export function App() {
     setScreen("match");
   }, []);
 
-  const purchaseSkin = useCallback((skin: SnakeSkin) => {
-    if (ownedSkins.includes(skin.id) || balance < skin.price) return;
-    setBalance((prev) => prev - skin.price);
-    setOwnedSkins((prev) => {
-      const next = [...prev, skin.id];
-      saveOwnedSkins(next);
+  const purchaseCosmetic = useCallback((item: Cosmetic) => {
+    if (ownedCosmetics.includes(item.id) || balance < item.price) return;
+    setBalance((prev) => prev - item.price);
+    setOwnedCosmetics((prev) => {
+      const next = [...prev, item.id];
+      saveOwnedCosmetics(next);
       return next;
     });
-    setEquippedSkin(skin.id);
-    saveEquippedSkin(skin.id);
+    setEquippedCosmetics((prev) => {
+      const next: EquippedCosmetics = { ...prev };
+      if (item.category === "scales") next.scales = item.id;
+      else if (item.category === "clothing") next.clothing = item.id;
+      else next.hat = item.id;
+      saveEquippedCosmetics(next);
+      return next;
+    });
     audio.play("cash");
-  }, [balance, ownedSkins]);
+  }, [balance, ownedCosmetics]);
 
-  const equipSkin = useCallback((skinId: string) => {
-    if (!ownedSkins.includes(skinId)) return;
-    setEquippedSkin(skinId);
-    saveEquippedSkin(skinId);
+  const equipCosmetic = useCallback((item: Cosmetic) => {
+    if (!ownedCosmetics.includes(item.id)) return;
+    setEquippedCosmetics((prev) => {
+      const next: EquippedCosmetics = { ...prev };
+      if (item.category === "scales") next.scales = item.id;
+      else if (item.category === "clothing") next.clothing = item.id;
+      else next.hat = item.id;
+      saveEquippedCosmetics(next);
+      return next;
+    });
     audio.play("click");
-  }, [ownedSkins]);
+  }, [ownedCosmetics]);
+
+  const unequipSlot = useCallback((category: "clothing" | "hat") => {
+    setEquippedCosmetics((prev) => {
+      const next = { ...prev, [category]: null };
+      saveEquippedCosmetics(next);
+      return next;
+    });
+    audio.play("click");
+  }, []);
 
   if (booting) {
     return (
@@ -184,10 +206,11 @@ export function App() {
         <MultiplayerLobby
           balance={balance}
           username={username}
-          ownedSkins={ownedSkins}
-          equippedSkin={equippedSkin}
-          onPurchaseSkin={purchaseSkin}
-          onEquipSkin={equipSkin}
+          ownedCosmetics={ownedCosmetics}
+          equippedCosmetics={equippedCosmetics}
+          onPurchaseCosmetic={purchaseCosmetic}
+          onEquipCosmetic={equipCosmetic}
+          onUnequipSlot={unequipSlot}
           onJoin={handleJoin}
           onExit={() => setScreen("menu")}
         />
@@ -198,7 +221,7 @@ export function App() {
           tier={activeTier}
           balance={balance}
           username={username}
-          equippedSkin={equippedSkin}
+          equippedCosmetics={equippedCosmetics}
           theme={theme}
           onAdjustBalance={adjustBalance}
           onRecordBet={recordBet}

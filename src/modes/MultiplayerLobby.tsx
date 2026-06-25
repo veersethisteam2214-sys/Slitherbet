@@ -2,15 +2,16 @@ import { ArrowLeft, Clock, Flame, Play, Trophy, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SnakeSkinShop } from "../components/SnakeSkinShop";
 import { formatCountdown, formatMoney, potFor, tiers, type Tier } from "../shared";
-import type { SnakeSkin } from "../snakeSkins";
+import { equippedSummary, type Cosmetic, type EquippedCosmetics } from "../snakeSkins";
 
 type MultiplayerLobbyProps = {
   balance: number;
   username: string;
-  ownedSkins: string[];
-  equippedSkin: string;
-  onPurchaseSkin: (skin: SnakeSkin) => void;
-  onEquipSkin: (skinId: string) => void;
+  ownedCosmetics: string[];
+  equippedCosmetics: EquippedCosmetics;
+  onPurchaseCosmetic: (item: Cosmetic) => void;
+  onEquipCosmetic: (item: Cosmetic) => void;
+  onUnequipSlot: (category: "clothing" | "hat") => void;
   onJoin: (tier: Tier) => void;
   onExit: () => void;
 };
@@ -18,10 +19,11 @@ type MultiplayerLobbyProps = {
 export function MultiplayerLobby({
   balance,
   username,
-  ownedSkins,
-  equippedSkin,
-  onPurchaseSkin,
-  onEquipSkin,
+  ownedCosmetics,
+  equippedCosmetics,
+  onPurchaseCosmetic,
+  onEquipCosmetic,
+  onUnequipSlot,
   onJoin,
   onExit,
 }: MultiplayerLobbyProps) {
@@ -56,7 +58,7 @@ export function MultiplayerLobby({
         </button>
         <div className="match-title">
           <span className="eyebrow">Tournament lobby · {username}</span>
-          <strong>Pick a table. Forge your snake. Then register.</strong>
+          <strong>Pick a table. Dress your snake. Register.</strong>
         </div>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
@@ -66,6 +68,15 @@ export function MultiplayerLobby({
 
       <div className="lobby-layout lobby-layout-shop">
         <section className="lobby-table-wrap">
+          <SnakeSkinShop
+            balance={balance}
+            owned={ownedCosmetics}
+            equipped={equippedCosmetics}
+            onPurchase={onPurchaseCosmetic}
+            onEquip={onEquipCosmetic}
+            onUnequip={onUnequipSlot}
+          />
+
           <div className="lobby-table-head">
             <span>Tournament</span>
             <span>Buy-in</span>
@@ -105,14 +116,6 @@ export function MultiplayerLobby({
               );
             })}
           </div>
-
-          <SnakeSkinShop
-            balance={balance}
-            owned={ownedSkins}
-            equipped={equippedSkin}
-            onPurchase={onPurchaseSkin}
-            onEquip={onEquipSkin}
-          />
         </section>
 
         <aside className="lobby-detail">
@@ -138,6 +141,10 @@ export function MultiplayerLobby({
               ))}
             </div>
           </div>
+
+          <p className="loadout-note">
+            Loadout: <strong>{equippedSummary(equippedCosmetics)}</strong>
+          </p>
 
           <button
             className="primary-action wide"

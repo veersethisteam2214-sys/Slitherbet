@@ -5,7 +5,7 @@ type LoadingProps = {
   duration?: number;
 };
 
-const phases = ["Coiling up", "Counting the pot", "Sharpening blades", "Slither time"];
+const phases = ["Coiling up", "Counting the pot", "Raptors circling", "Slither time"];
 
 export function Loading({ onDone, duration = 3000 }: LoadingProps) {
   const [progress, setProgress] = useState(0);

@@ -1,5 +1,8 @@
+import type { EquippedCosmetics } from "./snakeSkins";
+
 export type TierId = "micro" | "standard" | "mid" | "high" | "vip";
 export type Phase = "lobby" | "countdown" | "live" | "complete";
+export type { EquippedCosmetics };
 
 export type Tier = {
   id: TierId;
@@ -32,7 +35,7 @@ export type Snake = {
   name: string;
   color: string;
   accent: string;
-  skinId?: string;
+  cosmetics?: EquippedCosmetics;
   isHuman: boolean;
   alive: boolean;
   x: number;

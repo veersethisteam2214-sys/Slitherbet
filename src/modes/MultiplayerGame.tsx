@@ -1,7 +1,8 @@
 import { ArrowLeft, Crown, RotateCcw, Trophy, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { audio } from "../audio";
 import { drawRealisticSnake } from "../components/RealisticSnakeRenderer";
-import { skinById, snakeSkins } from "../snakeSkins";
+import { BASE_SNAKE, cosmetics, type EquippedCosmetics } from "../snakeSkins";
 import {
   arenaRadius,
   baseDotCount,
@@ -81,18 +82,18 @@ function createSnake(
   name: string,
   isHuman: boolean,
   index: number,
-  skinOverride?: ReturnType<typeof skinById>,
+  playerCosmetics?: EquippedCosmetics,
 ): Snake {
-  const skin = skinOverride ?? snakeSkins[(index + 1) % snakeSkins.length];
   const pos = pointInArena();
   const angle = rand(0, Math.PI * 2);
+  const botScale = cosmetics.filter((c) => c.category === "scales")[(index + 1) % 6];
   return {
     id,
     name,
     isHuman,
-    color: skin.color,
-    accent: skin.accent,
-    skinId: skin.id,
+    color: BASE_SNAKE.color,
+    accent: BASE_SNAKE.accent,
+    cosmetics: isHuman ? playerCosmetics : { scales: botScale?.id ?? "scales-natural", clothing: null, hat: null },
     alive: true,
     x: pos.x,
     y: pos.y,
@@ -113,10 +114,9 @@ function createSnake(
   };
 }
 
-function createGame(tier: Tier, username: string, equippedSkinId: string): GameState {
-  const humanSkin = skinById(equippedSkinId);
+function createGame(tier: Tier, username: string, equipped: EquippedCosmetics): GameState {
   const snakes = [
-    createSnake("you", username, true, 0, humanSkin),
+    createSnake("you", username, true, 0, equipped),
     ...Array.from({ length: tier.seats - 1 }, (_, i) => {
       const baseName = botNames[i % botNames.length];
       const table = Math.floor(i / botNames.length) + 1;
@@ -469,7 +469,7 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
       gem.addColorStop(1, neon ? "#0891b2" : "#1f9a52");
     }
     ctx.fillStyle = gem;
-    ctx.shadowColor = ctx.fillStyle as string;
+    ctx.shadowColor = dot.kind === "gold" ? "#ffd447" : dot.kind === "boost" ? "#c026d3" : (neon ? "#0891b2" : "#1f9a52");
     ctx.shadowBlur = dot.kind === "cash" ? 10 : 18;
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
@@ -480,14 +480,14 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
   const snakes = [...game.snakes].sort((a, b) => Number(a.isHuman) - Number(b.isHuman));
   for (const snake of snakes) {
     if (!snake.alive && snapshot.phase !== "complete") continue;
-    const skin = skinById(snake.skinId ?? snakeSkins[0].id);
+    const skin = snake.cosmetics ?? { scales: "scales-natural", clothing: null, hat: null };
     drawRealisticSnake(ctx, worldToScreen, {
       segments: snake.segments,
       angle: snake.angle,
       scale,
       alive: snake.alive,
       isHuman: snake.isHuman,
-      skin,
+      equipped: skin,
     });
   }
 
@@ -518,7 +518,7 @@ type MultiplayerGameProps = {
   tier: Tier;
   balance: number;
   username: string;
-  equippedSkin: string;
+  equippedCosmetics: EquippedCosmetics;
   theme: "arcade" | "neon";
   onAdjustBalance: (delta: number) => void;
   onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
@@ -529,18 +529,18 @@ export function MultiplayerGame({
   tier,
   balance,
   username,
-  equippedSkin,
+  equippedCosmetics,
   theme,
   onAdjustBalance,
   onRecordBet,
   onExit,
 }: MultiplayerGameProps) {
   const initialGame = useMemo(() => {
-    const game = createGame(tier, username, equippedSkin);
+    const game = createGame(tier, username, equippedCosmetics);
     game.phase = "countdown";
     game.eventText = "Seats locked. The cavern opens now.";
     return game;
-  }, [tier, username, equippedSkin]);
+  }, [tier, username, equippedCosmetics]);
 
   const [snapshot, setSnapshot] = useState<Snapshot>(() => buildSnapshot(initialGame));
   const gameRef = useRef<GameState>(initialGame);
@@ -549,18 +549,21 @@ export function MultiplayerGame({
   const boostRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const lastRef = useRef<number>(performance.now());
+  const prevPhaseRef = useRef<Phase>("countdown");
+  const prevHumanAliveRef = useRef(true);
+  const prevHumanBankedRef = useRef(0);
   const [boostUi, setBoostUi] = useState(false);
 
   const prizePool = potFor(tier);
   const houseTake = tier.buyIn * tier.seats * tier.rake;
 
   const resetGame = useCallback(() => {
-    const game = createGame(tier, username, equippedSkin);
+    const game = createGame(tier, username, equippedCosmetics);
     game.phase = "countdown";
     game.eventText = "Seats locked. The cavern opens now.";
     gameRef.current = game;
     setSnapshot(buildSnapshot(game));
-  }, [tier, username, equippedSkin]);
+  }, [tier, username, equippedCosmetics]);
 
   useEffect(() => {
     const loop = (now: number) => {
@@ -572,7 +575,12 @@ export function MultiplayerGame({
       if (!wasComplete && game.phase === "complete" && !game.settled) {
         game.settled = true;
         const payout = game.lastPayouts.find((p) => p.name === username);
-        if (payout) onAdjustBalance(payout.amount);
+        if (payout) {
+          onAdjustBalance(payout.amount);
+          audio.play("cash");
+        } else {
+          audio.play("death");
+        }
         onRecordBet({
           mode: "multiplayer",
           label: tier.name,
@@ -582,6 +590,20 @@ export function MultiplayerGame({
         });
       }
       const nextSnapshot = buildSnapshot(game);
+
+      if (prevPhaseRef.current === "countdown" && nextSnapshot.phase === "live") {
+        audio.play("start");
+      }
+      if (prevHumanAliveRef.current && !nextSnapshot.humanAlive && nextSnapshot.phase === "live") {
+        audio.play("death");
+      }
+      if (nextSnapshot.humanBanked > prevHumanBankedRef.current + 0.5) {
+        audio.play("safe");
+      }
+      prevPhaseRef.current = nextSnapshot.phase;
+      prevHumanAliveRef.current = nextSnapshot.humanAlive;
+      prevHumanBankedRef.current = nextSnapshot.humanBanked;
+
       setSnapshot(nextSnapshot);
       if (canvasRef.current) drawArena(canvasRef.current, game, nextSnapshot, theme);
       frameRef.current = requestAnimationFrame(loop);
@@ -598,6 +620,7 @@ export function MultiplayerGame({
         event.preventDefault();
         boostRef.current = event.type === "keydown";
         setBoostUi(event.type === "keydown");
+        if (event.type === "keydown") audio.play("step");
       }
     };
     window.addEventListener("keydown", onKey);
@@ -649,7 +672,7 @@ export function MultiplayerGame({
             <div className="toolbar-actions">
               <button
                 className={`boost-button ${boostUi ? "active" : ""}`}
-                onPointerDown={() => { boostRef.current = true; setBoostUi(true); }}
+                onPointerDown={() => { boostRef.current = true; setBoostUi(true); audio.play("step"); }}
                 onPointerUp={() => { boostRef.current = false; setBoostUi(false); }}
                 onPointerLeave={() => { boostRef.current = false; setBoostUi(false); }}
                 type="button"
