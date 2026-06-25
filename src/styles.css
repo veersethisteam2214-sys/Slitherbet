@@ -572,7 +572,9 @@ h1 {
 .rake-note svg { color: var(--gold); }
 
 /* ---------- Single player extras ---------- */
-.single-cashout {
+.single-canvas { cursor: pointer; }
+.single-cashout,
+.single-controls {
   position: absolute;
   left: 50%;
   bottom: 18px;
@@ -581,6 +583,26 @@ h1 {
   gap: 10px;
   align-items: center;
 }
+.cross-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 14px;
+  color: #04110d;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--teal), #4fd6ff);
+  box-shadow: 0 16px 40px rgba(99, 255, 224, 0.28);
+  transition: transform 140ms ease, filter 140ms ease;
+  touch-action: none;
+}
+.cross-button:hover:not(:disabled) { transform: translateY(-2px); }
+.cross-button:disabled { cursor: default; filter: grayscale(0.5) brightness(0.85); }
+.cashout-button:disabled { cursor: not-allowed; filter: grayscale(0.7) brightness(0.8); box-shadow: none; }
 .cashout-button {
   display: inline-flex;
   align-items: center;
