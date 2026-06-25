@@ -8,6 +8,14 @@ import { Menu } from "./modes/Menu";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
 import { SinglePlayerGame } from "./modes/SinglePlayerGame";
+import {
+  loadEquippedSkin,
+  loadOwnedSkins,
+  loadUsername,
+  saveEquippedSkin,
+  saveOwnedSkins,
+  type SnakeSkin,
+} from "./snakeSkins";
 import type { BetRecord, Tier } from "./shared";
 
 type Screen = "menu" | "single" | "lobby" | "match";
@@ -27,6 +35,10 @@ export function App() {
   const [activeTier, setActiveTier] = useState<Tier | null>(null);
   const [bets, setBets] = useState<BetRecord[]>([]);
   const [showBets, setShowBets] = useState(false);
+
+  const [username, setUsername] = useState(loadUsername);
+  const [ownedSkins, setOwnedSkins] = useState(loadOwnedSkins);
+  const [equippedSkin, setEquippedSkin] = useState(loadEquippedSkin);
 
   const [musicOn, setMusicOn] = useState(() => loadBool("sb_music", true));
   const [sfxOn, setSfxOn] = useState(() => loadBool("sb_sfx", true));
@@ -90,6 +102,26 @@ export function App() {
     setScreen("match");
   }, []);
 
+  const purchaseSkin = useCallback((skin: SnakeSkin) => {
+    if (ownedSkins.includes(skin.id) || balance < skin.price) return;
+    setBalance((prev) => prev - skin.price);
+    setOwnedSkins((prev) => {
+      const next = [...prev, skin.id];
+      saveOwnedSkins(next);
+      return next;
+    });
+    setEquippedSkin(skin.id);
+    saveEquippedSkin(skin.id);
+    audio.play("cash");
+  }, [balance, ownedSkins]);
+
+  const equipSkin = useCallback((skinId: string) => {
+    if (!ownedSkins.includes(skinId)) return;
+    setEquippedSkin(skinId);
+    saveEquippedSkin(skinId);
+    audio.play("click");
+  }, [ownedSkins]);
+
   if (booting) {
     return (
       <main className="app-shell">
@@ -130,6 +162,8 @@ export function App() {
         <Menu
           balance={balance}
           theme={theme}
+          username={username}
+          onUsernameChange={setUsername}
           onSingle={() => setScreen("single")}
           onMultiplayer={() => setScreen("lobby")}
         />
@@ -149,6 +183,11 @@ export function App() {
       {screen === "lobby" && (
         <MultiplayerLobby
           balance={balance}
+          username={username}
+          ownedSkins={ownedSkins}
+          equippedSkin={equippedSkin}
+          onPurchaseSkin={purchaseSkin}
+          onEquipSkin={equipSkin}
           onJoin={handleJoin}
           onExit={() => setScreen("menu")}
         />
@@ -158,6 +197,9 @@ export function App() {
         <MultiplayerGame
           tier={activeTier}
           balance={balance}
+          username={username}
+          equippedSkin={equippedSkin}
+          theme={theme}
           onAdjustBalance={adjustBalance}
           onRecordBet={recordBet}
           onExit={() => setScreen("lobby")}

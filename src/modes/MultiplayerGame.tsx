@@ -1,10 +1,11 @@
 import { ArrowLeft, Crown, RotateCcw, Trophy, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { drawRealisticSnake } from "../components/RealisticSnakeRenderer";
+import { skinById, snakeSkins } from "../snakeSkins";
 import {
   arenaRadius,
   baseDotCount,
   botNames,
-  colors,
   distance,
   formatMoney,
   formatTime,
@@ -75,16 +76,23 @@ function createDot(id: number, prizePool: number): Dot {
   };
 }
 
-function createSnake(id: string, name: string, isHuman: boolean, index: number): Snake {
+function createSnake(
+  id: string,
+  name: string,
+  isHuman: boolean,
+  index: number,
+  skinOverride?: ReturnType<typeof skinById>,
+): Snake {
+  const skin = skinOverride ?? snakeSkins[(index + 1) % snakeSkins.length];
   const pos = pointInArena();
-  const [color, accent] = colors[index % colors.length];
   const angle = rand(0, Math.PI * 2);
   return {
     id,
     name,
     isHuman,
-    color,
-    accent,
+    color: skin.color,
+    accent: skin.accent,
+    skinId: skin.id,
     alive: true,
     x: pos.x,
     y: pos.y,
@@ -105,9 +113,10 @@ function createSnake(id: string, name: string, isHuman: boolean, index: number):
   };
 }
 
-function createGame(tier: Tier): GameState {
+function createGame(tier: Tier, username: string, equippedSkinId: string): GameState {
+  const humanSkin = skinById(equippedSkinId);
   const snakes = [
-    createSnake("you", "You", true, 0),
+    createSnake("you", username, true, 0, humanSkin),
     ...Array.from({ length: tier.seats - 1 }, (_, i) => {
       const baseName = botNames[i % botNames.length];
       const table = Math.floor(i / botNames.length) + 1;
@@ -195,7 +204,7 @@ function eliminateSnake(game: GameState, snake: Snake, killer: Snake | null) {
       kind: i % 8 === 0 ? "gold" : "cash",
     });
   }
-  const name = snake.isHuman ? "You were eliminated" : `${snake.name} busted`;
+  const name = snake.isHuman ? `${snake.name} was eliminated` : `${snake.name} busted`;
   game.eventText = killer
     ? `${name} by ${killer.name}. ${game.snakes.filter((s) => s.alive).length} remain.`
     : `${name} outside the ring.`;
@@ -322,7 +331,76 @@ function updateGame(game: GameState, tier: Tier, dt: number, pointer: Segment | 
   if (game.snakes.filter((snake) => snake.alive).length === 1) completeGame(game);
 }
 
-function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapshot) {
+function drawCaveArena(
+  ctx: CanvasRenderingContext2D,
+  rect: DOMRect,
+  arenaCenter: { x: number; y: number },
+  arenaR: number,
+  camX: number,
+  camY: number,
+  neon: boolean,
+) {
+  const bg = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, 40, arenaCenter.x, arenaCenter.y, Math.max(rect.width, rect.height) * 0.7);
+  bg.addColorStop(0, neon ? "#120a22" : "#0f0a18");
+  bg.addColorStop(0.55, neon ? "#080510" : "#0a0812");
+  bg.addColorStop(1, "#030208");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, rect.width, rect.height);
+
+  const floor = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, 20, arenaCenter.x, arenaCenter.y, arenaR);
+  floor.addColorStop(0, neon ? "#1a1230" : "#14101f");
+  floor.addColorStop(0.7, neon ? "#0e0a1a" : "#0c0a14");
+  floor.addColorStop(1, "#060508");
+  ctx.beginPath();
+  ctx.arc(arenaCenter.x, arenaCenter.y, arenaR, 0, Math.PI * 2);
+  ctx.fillStyle = floor;
+  ctx.fill();
+
+  const tile = 140;
+  const first = Math.floor(camX / tile) - 2;
+  const count = Math.ceil(rect.width / (tile * 0.35)) + 8;
+  for (let i = 0; i < count; i += 1) {
+    const idx = first + i;
+    const ang = (idx * 0.31) % (Math.PI * 2);
+    const dist = arenaR * (0.88 + (idx % 5) * 0.018);
+    const wx = Math.cos(ang) * dist;
+    const wy = Math.sin(ang) * dist;
+    const sx = arenaCenter.x + (wx - camX) * (arenaR / arenaRadius);
+    const sy = arenaCenter.y + (wy - camY) * (arenaR / arenaRadius);
+    if (Math.hypot(sx - arenaCenter.x, sy - arenaCenter.y) > arenaR + 30) continue;
+    const len = 22 + (idx % 7) * 8;
+    ctx.fillStyle = neon ? "#1d1640" : "#1c1528";
+    ctx.beginPath();
+    ctx.moveTo(sx - 8, sy);
+    ctx.lineTo(sx + 8, sy);
+    ctx.lineTo(sx, sy - len);
+    ctx.closePath();
+    ctx.fill();
+    if (idx % 4 === 0) {
+      ctx.save();
+      ctx.shadowColor = neon ? "#29f0ff" : "#63ffe0";
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = neon ? "rgba(41,240,255,0.7)" : "rgba(99,255,224,0.65)";
+      ctx.beginPath();
+      ctx.moveTo(sx - 4, sy - len);
+      ctx.lineTo(sx + 4, sy - len);
+      ctx.lineTo(sx, sy - len - 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  const vg = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, arenaR * 0.3, arenaCenter.x, arenaCenter.y, arenaR);
+  vg.addColorStop(0, "transparent");
+  vg.addColorStop(1, "rgba(0,0,0,0.5)");
+  ctx.fillStyle = vg;
+  ctx.beginPath();
+  ctx.arc(arenaCenter.x, arenaCenter.y, arenaR, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapshot, theme: "arcade" | "neon") {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
@@ -347,57 +425,31 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
     y: cy + (p.y - (camera?.y ?? 0)) * scale,
   });
 
-  const bg = ctx.createRadialGradient(cx, cy, 60, cx, cy, Math.max(rect.width, rect.height));
-  bg.addColorStop(0, "#0c1a22");
-  bg.addColorStop(0.6, "#091016");
-  bg.addColorStop(1, "#05080c");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, rect.width, rect.height);
-
   ctx.save();
   const arenaCenter = worldToScreen({ x: 0, y: 0 });
-  const floor = ctx.createRadialGradient(
-    arenaCenter.x, arenaCenter.y, 30,
-    arenaCenter.x, arenaCenter.y, arenaRadius * scale,
-  );
-  floor.addColorStop(0, "#0f1c22");
-  floor.addColorStop(1, "#0a1216");
-  ctx.beginPath();
-  ctx.arc(arenaCenter.x, arenaCenter.y, arenaRadius * scale, 0, Math.PI * 2);
-  ctx.fillStyle = floor;
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(114, 255, 217, 0.16)";
-  ctx.stroke();
+  const neon = theme === "neon";
+  const arenaR = arenaRadius * scale;
 
-  const gridStep = 180;
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(255,255,255,0.035)";
-  for (let x = -arenaRadius; x <= arenaRadius; x += gridStep) {
-    const top = worldToScreen({ x, y: -arenaRadius });
-    const bottom = worldToScreen({ x, y: arenaRadius });
-    ctx.beginPath();
-    ctx.moveTo(top.x, top.y);
-    ctx.lineTo(bottom.x, bottom.y);
-    ctx.stroke();
-  }
-  for (let y = -arenaRadius; y <= arenaRadius; y += gridStep) {
-    const left = worldToScreen({ x: -arenaRadius, y });
-    const right = worldToScreen({ x: arenaRadius, y });
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y);
-    ctx.lineTo(right.x, right.y);
-    ctx.stroke();
-  }
+  drawCaveArena(ctx, rect, arenaCenter, arenaR, camera?.x ?? 0, camera?.y ?? 0, neon);
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = neon ? "rgba(120, 90, 255, 0.25)" : "rgba(99, 255, 224, 0.12)";
+  ctx.beginPath();
+  ctx.arc(arenaCenter.x, arenaCenter.y, arenaR, 0, Math.PI * 2);
+  ctx.stroke();
 
   if (snapshot.phase === "live" || snapshot.phase === "complete") {
     ctx.beginPath();
     ctx.arc(arenaCenter.x, arenaCenter.y, game.safeRadius * scale, 0, Math.PI * 2);
-    ctx.strokeStyle = game.finalTableAnnounced ? "rgba(255, 211, 71, 0.75)" : "rgba(0, 213, 255, 0.55)";
-    ctx.shadowColor = game.finalTableAnnounced ? "#ffd447" : "#00d5ff";
-    ctx.shadowBlur = 16;
+    ctx.strokeStyle = game.finalTableAnnounced
+      ? (neon ? "rgba(255, 225, 77, 0.85)" : "rgba(255, 211, 71, 0.75)")
+      : (neon ? "rgba(41, 240, 255, 0.65)" : "rgba(99, 255, 224, 0.55)");
+    ctx.shadowColor = game.finalTableAnnounced ? "#ffd447" : (neon ? "#29f0ff" : "#63ffe0");
+    ctx.shadowBlur = 18;
     ctx.lineWidth = 4;
+    ctx.setLineDash([16, 14]);
     ctx.stroke();
+    ctx.setLineDash([]);
     ctx.shadowBlur = 0;
   }
 
@@ -405,11 +457,22 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
     const p = worldToScreen(dot);
     if (p.x < -20 || p.y < -20 || p.x > rect.width + 20 || p.y > rect.height + 20) continue;
     const radius = Math.max(2, dot.radius * scale);
+    const gem = ctx.createRadialGradient(p.x - radius * 0.3, p.y - radius * 0.3, 1, p.x, p.y, radius);
+    if (dot.kind === "gold") {
+      gem.addColorStop(0, "#fff0bd");
+      gem.addColorStop(1, "#d99a16");
+    } else if (dot.kind === "boost") {
+      gem.addColorStop(0, "#ffd6ff");
+      gem.addColorStop(1, "#c026d3");
+    } else {
+      gem.addColorStop(0, neon ? "#a5f3fc" : "#9bf7c0");
+      gem.addColorStop(1, neon ? "#0891b2" : "#1f9a52");
+    }
+    ctx.fillStyle = gem;
+    ctx.shadowColor = ctx.fillStyle as string;
+    ctx.shadowBlur = dot.kind === "cash" ? 10 : 18;
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = dot.kind === "gold" ? "#ffd447" : dot.kind === "boost" ? "#f464ff" : "#63ffe0";
-    ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = dot.kind === "cash" ? 8 : 16;
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -417,35 +480,15 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
   const snakes = [...game.snakes].sort((a, b) => Number(a.isHuman) - Number(b.isHuman));
   for (const snake of snakes) {
     if (!snake.alive && snapshot.phase !== "complete") continue;
-    ctx.globalAlpha = snake.alive ? 1 : 0.28;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (let i = snake.segments.length - 1; i > 0; i -= 1) {
-      const a = worldToScreen(snake.segments[i]);
-      const b = worldToScreen(snake.segments[i - 1]);
-      const widthAtSegment = Math.max(5, (19 - i * 0.1) * scale);
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = snake.color;
-      ctx.lineWidth = widthAtSegment;
-      ctx.shadowColor = snake.color;
-      ctx.shadowBlur = snake.isHuman ? 16 : 8;
-      ctx.stroke();
-    }
-    const head = worldToScreen(snake);
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = snake.accent;
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, 16 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#071014";
-    ctx.beginPath();
-    ctx.arc(head.x + Math.cos(snake.angle + 0.5) * 7 * scale, head.y + Math.sin(snake.angle + 0.5) * 7 * scale, 2.6 * scale, 0, Math.PI * 2);
-    ctx.arc(head.x + Math.cos(snake.angle - 0.5) * 7 * scale, head.y + Math.sin(snake.angle - 0.5) * 7 * scale, 2.6 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    const skin = skinById(snake.skinId ?? snakeSkins[0].id);
+    drawRealisticSnake(ctx, worldToScreen, {
+      segments: snake.segments,
+      angle: snake.angle,
+      scale,
+      alive: snake.alive,
+      isHuman: snake.isHuman,
+      skin,
+    });
   }
 
   if (snapshot.phase === "countdown") {
@@ -474,18 +517,30 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
 type MultiplayerGameProps = {
   tier: Tier;
   balance: number;
+  username: string;
+  equippedSkin: string;
+  theme: "arcade" | "neon";
   onAdjustBalance: (delta: number) => void;
   onRecordBet: (bet: Omit<BetRecord, "id" | "time">) => void;
   onExit: () => void;
 };
 
-export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, onExit }: MultiplayerGameProps) {
+export function MultiplayerGame({
+  tier,
+  balance,
+  username,
+  equippedSkin,
+  theme,
+  onAdjustBalance,
+  onRecordBet,
+  onExit,
+}: MultiplayerGameProps) {
   const initialGame = useMemo(() => {
-    const game = createGame(tier);
+    const game = createGame(tier, username, equippedSkin);
     game.phase = "countdown";
-    game.eventText = "Seats locked. Match starts now.";
+    game.eventText = "Seats locked. The cavern opens now.";
     return game;
-  }, [tier]);
+  }, [tier, username, equippedSkin]);
 
   const [snapshot, setSnapshot] = useState<Snapshot>(() => buildSnapshot(initialGame));
   const gameRef = useRef<GameState>(initialGame);
@@ -500,12 +555,12 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
   const houseTake = tier.buyIn * tier.seats * tier.rake;
 
   const resetGame = useCallback(() => {
-    const game = createGame(tier);
+    const game = createGame(tier, username, equippedSkin);
     game.phase = "countdown";
-    game.eventText = "Seats locked. Match starts now.";
+    game.eventText = "Seats locked. The cavern opens now.";
     gameRef.current = game;
     setSnapshot(buildSnapshot(game));
-  }, [tier]);
+  }, [tier, username, equippedSkin]);
 
   useEffect(() => {
     const loop = (now: number) => {
@@ -516,7 +571,7 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
       updateGame(game, tier, dt, pointerRef.current, boostRef.current);
       if (!wasComplete && game.phase === "complete" && !game.settled) {
         game.settled = true;
-        const payout = game.lastPayouts.find((p) => p.name === "You");
+        const payout = game.lastPayouts.find((p) => p.name === username);
         if (payout) onAdjustBalance(payout.amount);
         onRecordBet({
           mode: "multiplayer",
@@ -528,14 +583,14 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
       }
       const nextSnapshot = buildSnapshot(game);
       setSnapshot(nextSnapshot);
-      if (canvasRef.current) drawArena(canvasRef.current, game, nextSnapshot);
+      if (canvasRef.current) drawArena(canvasRef.current, game, nextSnapshot, theme);
       frameRef.current = requestAnimationFrame(loop);
     };
     frameRef.current = requestAnimationFrame(loop);
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [tier, onAdjustBalance, onRecordBet]);
+  }, [tier, theme, username, onAdjustBalance, onRecordBet]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -565,7 +620,7 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
     };
   };
 
-  const playerPayout = snapshot.lastPayouts.find((payout) => payout.name === "You");
+  const playerPayout = snapshot.lastPayouts.find((payout) => payout.name === username);
 
   return (
     <div className="match-screen">
@@ -574,7 +629,7 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
           <ArrowLeft size={16} /> Lobby
         </button>
         <div className="match-title">
-          <span className="eyebrow">{tier.name}</span>
+          <span className="eyebrow">{tier.name} · {username}</span>
           <strong>{snapshot.eventText}</strong>
         </div>
         <div className="match-wallet">
@@ -608,7 +663,7 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
               </button>
             </div>
           </div>
-          <div className="arena-frame">
+          <div className="arena-frame multi-cave-frame">
             <canvas
               ref={canvasRef}
               className="arena-canvas"
@@ -618,17 +673,17 @@ export function MultiplayerGame({ tier, balance, onAdjustBalance, onRecordBet, o
             <div className="hud-card upper-left">
               <span>Your claim</span>
               <strong>{formatMoney(snapshot.humanBanked)}</strong>
-              <small>{snapshot.humanAlive ? `Rank #${snapshot.humanRank}` : "Busted"}</small>
+              <small>{snapshot.humanAlive ? `Rank #${snapshot.humanRank}` : "Eliminated"}</small>
             </div>
             <div className="hud-card upper-right">
-              <span>Safe ring</span>
+              <span>Cave ring</span>
               <strong>{Math.round((snapshot.safeRadius / arenaRadius) * 100)}%</strong>
               <small>{snapshot.alive <= 6 ? "In the money" : `${Math.max(0, snapshot.alive - 6)} from cash`}</small>
             </div>
             {snapshot.phase === "complete" && (
               <div className="match-result">
                 <Crown size={28} />
-                <strong>{playerPayout ? `You finished #${playerPayout.place}` : "You missed the money"}</strong>
+                <strong>{playerPayout ? `${username} finished #${playerPayout.place}` : "Missed the money"}</strong>
                 {playerPayout ? (
                   <span className="result-amount">{formatMoney(playerPayout.amount)}</span>
                 ) : (

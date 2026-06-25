@@ -1,14 +1,30 @@
 import { ArrowLeft, Clock, Flame, Play, Trophy, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { SnakeSkinShop } from "../components/SnakeSkinShop";
 import { formatCountdown, formatMoney, potFor, tiers, type Tier } from "../shared";
+import type { SnakeSkin } from "../snakeSkins";
 
 type MultiplayerLobbyProps = {
   balance: number;
+  username: string;
+  ownedSkins: string[];
+  equippedSkin: string;
+  onPurchaseSkin: (skin: SnakeSkin) => void;
+  onEquipSkin: (skinId: string) => void;
   onJoin: (tier: Tier) => void;
   onExit: () => void;
 };
 
-export function MultiplayerLobby({ balance, onJoin, onExit }: MultiplayerLobbyProps) {
+export function MultiplayerLobby({
+  balance,
+  username,
+  ownedSkins,
+  equippedSkin,
+  onPurchaseSkin,
+  onEquipSkin,
+  onJoin,
+  onExit,
+}: MultiplayerLobbyProps) {
   const [clocks, setClocks] = useState<Record<string, number>>(() =>
     Object.fromEntries(tiers.map((tier) => [tier.id, tier.startsIn])),
   );
@@ -39,8 +55,8 @@ export function MultiplayerLobby({ balance, onJoin, onExit }: MultiplayerLobbyPr
           <ArrowLeft size={16} /> Menu
         </button>
         <div className="match-title">
-          <span className="eyebrow">Multiplayer · Tournament lobby</span>
-          <strong>Register for a table and outlast the field.</strong>
+          <span className="eyebrow">Tournament lobby · {username}</span>
+          <strong>Pick a table. Forge your snake. Then register.</strong>
         </div>
         <div className="match-wallet">
           <span className="eyebrow">Balance</span>
@@ -48,7 +64,7 @@ export function MultiplayerLobby({ balance, onJoin, onExit }: MultiplayerLobbyPr
         </div>
       </header>
 
-      <div className="lobby-layout">
+      <div className="lobby-layout lobby-layout-shop">
         <section className="lobby-table-wrap">
           <div className="lobby-table-head">
             <span>Tournament</span>
@@ -89,6 +105,14 @@ export function MultiplayerLobby({ balance, onJoin, onExit }: MultiplayerLobbyPr
               );
             })}
           </div>
+
+          <SnakeSkinShop
+            balance={balance}
+            owned={ownedSkins}
+            equipped={equippedSkin}
+            onPurchase={onPurchaseSkin}
+            onEquip={onEquipSkin}
+          />
         </section>
 
         <aside className="lobby-detail">
@@ -121,7 +145,7 @@ export function MultiplayerLobby({ balance, onJoin, onExit }: MultiplayerLobbyPr
             onClick={() => onJoin(selected)}
             disabled={!canAfford}
           >
-            <Play size={18} /> {canAfford ? `Register · ${formatMoney(selected.buyIn)}` : "Insufficient balance"}
+            <Play size={18} /> {canAfford ? `Register as ${username} · ${formatMoney(selected.buyIn)}` : "Insufficient balance"}
           </button>
           <p className="muted small center">Buy-in is deducted from your demo balance. Fake money only.</p>
         </aside>

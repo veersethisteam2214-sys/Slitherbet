@@ -211,6 +211,55 @@ h1 {
   line-height: 1.5;
 }
 
+.ign-gate {
+  width: min(420px, 92vw);
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(8, 14, 19, 0.75);
+  backdrop-filter: blur(12px);
+}
+.ign-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.ign-row {
+  display: flex;
+  gap: 8px;
+}
+.ign-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: 600 1rem "Space Grotesk", Inter, system-ui;
+  letter-spacing: 0.02em;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.ign-input:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px rgba(99, 255, 224, 0.12);
+}
+.ign-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.ign-hint.ok { color: var(--teal); }
+
+.mode-grid.locked { opacity: 0.45; pointer-events: none; filter: grayscale(0.3); }
+.mode-card:disabled { cursor: not-allowed; opacity: 0.6; }
+
 .mode-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1645,6 +1694,85 @@ h1 {
 .theme-neon .brand-mark { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 18px rgba(41, 240, 255, 0.35); }
 .theme-neon .primary-action { box-shadow: 0 14px 34px rgba(41, 240, 255, 0.28); }
 .theme-neon .mode-card:hover { box-shadow: 0 34px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(120, 90, 255, 0.2); }
+
+/* ---------- Snake skin shop (multiplayer lobby) ---------- */
+.lobby-layout-shop .lobby-table-wrap { display: flex; flex-direction: column; gap: 20px; }
+.skin-shop {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(8, 14, 19, 0.72);
+}
+.skin-shop-head h2 {
+  font-family: "Space Grotesk", Inter, system-ui;
+  font-size: 1.35rem;
+  margin: 4px 0 6px;
+}
+.skin-shop-sub {
+  margin: 0 0 14px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  max-width: 520px;
+}
+.skin-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+.skin-card.equipped {
+  border-color: var(--border-strong);
+  box-shadow: inset 0 0 0 1px rgba(99, 255, 224, 0.2);
+}
+.skin-card:hover { transform: translateY(-2px); }
+.skin-preview-canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 60%, rgba(20, 30, 28, 0.9), rgba(6, 8, 12, 0.95));
+}
+.skin-meta strong { font-size: 0.88rem; display: block; }
+.skin-tags {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+.skin-btn { width: 100%; justify-content: center; font-size: 0.78rem !important; padding: 8px 10px !important; }
+.skin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--teal);
+  background: rgba(99, 255, 224, 0.1);
+}
+.skin-equipped-note {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.multi-cave-frame {
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.45), inset 0 0 50px rgba(0, 0, 0, 0.55);
+  background: #07050c;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

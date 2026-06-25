@@ -32,6 +32,7 @@ export type Snake = {
   name: string;
   color: string;
   accent: string;
+  skinId?: string;
   isHuman: boolean;
   alive: boolean;
   x: number;

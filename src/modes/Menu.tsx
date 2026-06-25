@@ -1,10 +1,14 @@
-import { ChevronRight, Coins, Layers, Mountain, Users } from "lucide-react";
+import { ChevronRight, Coins, Layers, Mountain, User, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { SnakeWordmark } from "../components/SnakeWordmark";
 import { formatMoney } from "../shared";
+import { isValidUsername, saveUsername } from "../snakeSkins";
 
 type MenuProps = {
   balance: number;
   theme: "arcade" | "neon";
+  username: string;
+  onUsernameChange: (name: string) => void;
   onSingle: () => void;
   onMultiplayer: () => void;
 };
@@ -24,7 +28,32 @@ function BrandMark() {
   );
 }
 
-export function Menu({ balance, theme, onSingle, onMultiplayer }: MenuProps) {
+export function Menu({ balance, theme, username, onUsernameChange, onSingle, onMultiplayer }: MenuProps) {
+  const [draft, setDraft] = useState(username);
+  const valid = isValidUsername(draft);
+
+  useEffect(() => {
+    setDraft(username);
+  }, [username]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (isValidUsername(trimmed)) {
+      saveUsername(trimmed);
+      onUsernameChange(trimmed);
+    }
+  };
+
+  const enterSingle = () => {
+    commit();
+    if (isValidUsername(draft)) onSingle();
+  };
+
+  const enterMulti = () => {
+    commit();
+    if (isValidUsername(draft)) onMultiplayer();
+  };
+
   return (
     <div className="menu-screen">
       <div className="menu-glow" aria-hidden />
@@ -42,11 +71,36 @@ export function Menu({ balance, theme, onSingle, onMultiplayer }: MenuProps) {
       <div className="menu-body">
         <div className="menu-hero">
           <SnakeWordmark theme={theme} />
-          <p className="hero-line">A skill arena where one slip ends the run. Pick your table.</p>
+          <p className="hero-line">A skill arena where one slip ends the run. Set your tag, then pick a table.</p>
         </div>
 
-        <div className="mode-grid">
-          <button className="mode-card single" type="button" onClick={onSingle}>
+        <div className="ign-gate">
+          <label className="ign-label" htmlFor="ign-input">
+            <User size={14} /> Your tag
+          </label>
+          <div className="ign-row">
+            <input
+              id="ign-input"
+              className="ign-input"
+              type="text"
+              placeholder="e.g. ViperKing"
+              maxLength={16}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+              onBlur={commit}
+              onKeyDown={(e) => e.key === "Enter" && commit()}
+            />
+            <button className="ghost-button" type="button" onClick={commit} disabled={!valid}>
+              Save
+            </button>
+          </div>
+          <p className={`ign-hint ${valid ? "ok" : ""}`}>
+            {valid ? `Locked in as ${draft.trim()}` : "3–16 characters · letters, numbers, underscore"}
+          </p>
+        </div>
+
+        <div className={`mode-grid ${valid ? "" : "locked"}`}>
+          <button className="mode-card single" type="button" onClick={enterSingle} disabled={!valid}>
             <div className="mode-top">
               <span className="mode-kicker"><Mountain size={13} /> Solo · cave run</span>
               <span className="mode-stat">~12s a run</span>
@@ -60,13 +114,13 @@ export function Menu({ balance, theme, onSingle, onMultiplayer }: MenuProps) {
             <span className="mode-cta">Enter the cave <ChevronRight size={16} /></span>
           </button>
 
-          <button className="mode-card multi" type="button" onClick={onMultiplayer}>
+          <button className="mode-card multi" type="button" onClick={enterMulti} disabled={!valid}>
             <div className="mode-top">
               <span className="mode-kicker"><Users size={13} /> Live · last snake standing</span>
               <span className="mode-stat">Up to 100 seats</span>
             </div>
             <h3>Tournaments</h3>
-            <p>Buy into a scheduled table and fight the field in a single arena. Outlast everyone — the final six split the pot.</p>
+            <p>Buy into a scheduled table and fight the field in a single cavern. Outlast everyone — the final six split the pot.</p>
             <ul className="mode-points">
               <li><Coins size={15} /> Top-six payout ladder</li>
               <li><Users size={15} /> Snake-vs-snake, no respawns</li>
