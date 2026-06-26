@@ -2,7 +2,7 @@ import { Coins, Layers, Mountain, User, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SnakeWordmark } from "../components/SnakeWordmark";
 import { Button } from "../components/ui/Button";
-import { LiquidGlassPanel } from "../components/ui/LiquidGlassPanel";
+import { GlassPanel } from "../components/ui/GlassPanel";
 import { Input } from "../components/ui/Input";
 import { ModeCard } from "../components/ui/ModeCard";
 import { formatMoney } from "../shared";
@@ -69,10 +69,10 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
             <span className="brand-sub">Skill arena · demo stakes</span>
           </div>
         </div>
-        <LiquidGlassPanel className="wallet-chip">
+        <GlassPanel className="wallet-chip">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>
-        </LiquidGlassPanel>
+        </GlassPanel>
       </header>
 
       <div className="menu-wordmark-row">
@@ -84,7 +84,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
           One slip ends the run. Claim your tag, pick a table, and play for the pot.
         </p>
 
-        <LiquidGlassPanel className="ign-gate" elevated>
+        <GlassPanel className="ign-gate" elevated>
           <div className="ign-row">
             <div className="ign-field-wrap">
               <Input
@@ -111,7 +111,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
               Save
             </Button>
           </div>
-        </LiquidGlassPanel>
+        </GlassPanel>
 
         <div className={`mode-grid ${valid ? "" : "locked"}`}>
           <ModeCard
