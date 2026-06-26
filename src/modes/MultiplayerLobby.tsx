@@ -1,8 +1,7 @@
-import { ArrowLeft, Clock, Flame, Play, Shirt, Trophy, Users, X } from "lucide-react";
+import { ArrowLeft, Play, Shirt, Trophy, Users, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SnakeSkinShop } from "../components/SnakeSkinShop";
-import { LiquidGlassPanel } from "../components/ui/LiquidGlassPanel";
-import { formatCountdown, formatMoney, potFor, tiers, type Tier } from "../shared";
+import { botNames, formatCountdown, formatMoney, payoutPercents, potFor, tiers, type Tier } from "../shared";
 import { equippedSummary, type Cosmetic, type EquippedCosmetics } from "../snakeSkins";
 
 type MultiplayerLobbyProps = {
@@ -50,124 +49,151 @@ export function MultiplayerLobby({
 
   const selected = useMemo(() => tiers.find((tier) => tier.id === selectedId) ?? tiers[1], [selectedId]);
   const selectedPool = potFor(selected);
+  const topPrize = selectedPool * payoutPercents[0];
   const canAfford = balance >= selected.buyIn;
+  const playersOnline = useMemo(() => tiers.reduce((sum, tier) => sum + tier.registered, 0), []);
+
+  // Faux live winners feed — pure flavor, makes the lobby feel alive like Stake/Roobet.
+  const winners = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const tier = tiers[(i * 2 + 1) % tiers.length];
+      const amount = potFor(tier) * payoutPercents[i % 3];
+      return { name: botNames[(i * 5 + 3) % botNames.length], amount };
+    });
+  }, []);
 
   return (
     <div className="lobby-screen">
       <header className="lobby-topbar">
         <button className="ghost-button" type="button" onClick={onExit}>
-          <ArrowLeft size={16} /> Menu
+          <ArrowLeft size={16} /> Back
         </button>
-        <div className="lobby-hero-title">
-          <span className="eyebrow">Tournament lobby</span>
-          <strong>Pick your table · {username}</strong>
+        <div className="lobby-live-status">
+          <span className="live-dot" aria-hidden />
+          <strong>{playersOnline.toLocaleString()}</strong> snakes in the arena
         </div>
         <div className="lobby-topbar-actions">
           <button className="forge-toggle" type="button" onClick={() => setShowForge(true)}>
-            <Shirt size={16} /> Snake forge
+            <Shirt size={16} /> Skins
           </button>
-          <LiquidGlassPanel className="match-wallet">
-            <span className="eyebrow">Balance</span>
+          <div className="wallet-readout">
+            <span>Balance</span>
             <strong>{formatMoney(balance)}</strong>
-          </LiquidGlassPanel>
+          </div>
         </div>
       </header>
 
-      <div className="lobby-layout lobby-layout-premium">
-        <section className="lobby-table-wrap">
-          <div className="lobby-table-head">
-            <span>Tournament</span>
-            <span>Buy-in</span>
-            <span>Players</span>
-            <span>Starts</span>
-            <span>Prize pool</span>
-            <span />
-          </div>
-          <div className="lobby-rows">
-            {tiers.map((tier) => {
-              const startsIn = clocks[tier.id] ?? tier.startsIn;
-              const pool = potFor(tier);
-              const active = tier.id === selectedId;
-              const fill = Math.round((tier.registered / tier.seats) * 100);
-              return (
-                <button
-                  key={tier.id}
-                  type="button"
-                  className={`lobby-row ${active ? "active" : ""}`}
-                  onClick={() => setSelectedId(tier.id)}
-                >
-                  <span className="lobby-name">
+      <div className="winner-ticker" aria-hidden>
+        <div className="winner-track">
+          {[...winners, ...winners].map((w, i) => (
+            <span key={i} className="winner-chip">
+              <Trophy size={11} /> {w.name} cashed <strong>{formatMoney(w.amount)}</strong>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="lobby-layout-premium">
+        <section className="arena-list">
+          {tiers.map((tier) => {
+            const startsIn = clocks[tier.id] ?? tier.startsIn;
+            const pool = potFor(tier);
+            const active = tier.id === selectedId;
+            const fill = Math.round((tier.registered / tier.seats) * 100);
+            const live = startsIn <= 12;
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                className={`arena-card ${active ? "active" : ""}`}
+                onClick={() => setSelectedId(tier.id)}
+              >
+                <div className="arena-card-main">
+                  <span className={`arena-badge ${live ? "live" : ""}`}>
+                    {live ? <><span className="live-dot" /> LIVE</> : <>{formatCountdown(startsIn)}</>}
+                  </span>
+                  <div className="arena-card-name">
                     <strong>{tier.name}</strong>
-                    <small><Flame size={12} /> {tier.intensity} · {tier.format}</small>
-                  </span>
-                  <span className="lobby-buyin">{formatMoney(tier.buyIn)}</span>
-                  <span className="lobby-players">
-                    <Users size={13} /> {tier.registered}/{tier.seats}
-                    <i className="fill-bar"><i style={{ width: `${fill}%` }} /></i>
-                  </span>
-                  <span className={`lobby-clock ${startsIn <= 10 ? "soon" : ""}`}>
-                    <Clock size={13} /> {formatCountdown(startsIn)}
-                  </span>
-                  <span className="lobby-pool">{formatMoney(pool)}</span>
-                  <span className="lobby-cta">Select</span>
-                </button>
-              );
-            })}
-          </div>
+                    <small><Users size={12} /> {tier.registered}/{tier.seats} snakes</small>
+                  </div>
+                </div>
+                <div className="arena-card-fill">
+                  <i style={{ width: `${fill}%` }} />
+                </div>
+                <div className="arena-card-stats">
+                  <span className="arena-buyin">{formatMoney(tier.buyIn)}<small>entry</small></span>
+                  <span className="arena-pool">{formatMoney(pool)}<small>prize pool</small></span>
+                </div>
+              </button>
+            );
+          })}
         </section>
 
-        <aside className="lobby-detail">
-          <LiquidGlassPanel className="lobby-detail-inner" elevated>
-            <span className="eyebrow">Selected table</span>
+        <aside className="join-panel">
+          <div className="join-head">
+            <span className="join-label">Selected arena</span>
             <h2>{selected.name}</h2>
-            <p className="detail-sub"><Flame size={13} /> {selected.intensity} · {selected.format} format</p>
+          </div>
 
-            <dl className="detail-grid">
-              <div><dt>Buy-in</dt><dd>{formatMoney(selected.buyIn)}</dd></div>
-              <div><dt>Prize pool</dt><dd className="gold">{formatMoney(selectedPool)}</dd></div>
-              <div><dt>Field</dt><dd>{selected.registered}/{selected.seats}</dd></div>
-              <div><dt>Rake</dt><dd>{Math.round(selected.rake * 100)}%</dd></div>
-            </dl>
+          <div className="join-pool">
+            <span>Prize pool</span>
+            <strong>{formatMoney(selectedPool)}</strong>
+            <small>Top prize {formatMoney(topPrize)}</small>
+          </div>
 
-            <div className="detail-ladder">
-              <span className="eyebrow"><Trophy size={12} /> Top-6 payout</span>
-              <div className="ladder-bars">
-                {[0.42, 0.24, 0.14, 0.09, 0.065, 0.045].map((percent, index) => (
-                  <div key={percent}>
-                    <span>#{index + 1}</span>
-                    <strong>{formatMoney(selectedPool * percent)}</strong>
-                  </div>
-                ))}
-              </div>
+          <div className="join-meta">
+            <div>
+              <span>Entry</span>
+              <strong>{formatMoney(selected.buyIn)}</strong>
             </div>
+            <div>
+              <span>Field</span>
+              <strong>{selected.registered}/{selected.seats}</strong>
+            </div>
+            <div>
+              <span>Paid spots</span>
+              <strong>Top {payoutPercents.length}</strong>
+            </div>
+          </div>
 
-            <p className="loadout-note">
-              Loadout: <strong>{equippedSummary(equippedCosmetics)}</strong>
-            </p>
+          <div className="join-payouts">
+            {payoutPercents.slice(0, 6).map((percent, index) => (
+              <div key={percent} className={index === 0 ? "first" : ""}>
+                <span>{index + 1}{index === 0 ? "st" : index === 1 ? "nd" : index === 2 ? "rd" : "th"}</span>
+                <strong>{formatMoney(selectedPool * percent)}</strong>
+              </div>
+            ))}
+          </div>
 
-            <button
-              className="primary-action wide"
-              type="button"
-              onClick={() => onJoin(selected)}
-              disabled={!canAfford}
-            >
-              <Play size={18} /> {canAfford ? `Register · ${formatMoney(selected.buyIn)}` : "Insufficient balance"}
-            </button>
-            <p className="muted small center">Demo stakes only · fake money</p>
-          </LiquidGlassPanel>
+          <button
+            className="join-button"
+            type="button"
+            onClick={() => onJoin(selected)}
+            disabled={!canAfford}
+          >
+            {canAfford ? (
+              <><Play size={18} fill="currentColor" /> Join Arena · {formatMoney(selected.buyIn)}</>
+            ) : (
+              <>Not enough balance</>
+            )}
+          </button>
+
+          <p className="join-snake">
+            <Zap size={12} /> Your snake: <strong>{equippedSummary(equippedCosmetics)}</strong>
+          </p>
         </aside>
       </div>
 
       {showForge && (
-        <div className="forge-overlay" role="dialog" aria-modal="true" aria-label="Snake forge">
+        <div className="forge-overlay" role="dialog" aria-modal="true" aria-label="Snake skins">
           <div className="forge-backdrop" onClick={() => setShowForge(false)} aria-hidden />
-          <LiquidGlassPanel className="forge-panel" elevated cornerRadius={22}>
+          <div className="forge-panel">
             <div className="forge-head">
               <div>
-                <span className="eyebrow">Cosmetics</span>
-                <h2>Snake forge</h2>
+                <span className="join-label">Customize</span>
+                <h2>Snake skins</h2>
               </div>
-              <button className="ghost-button" type="button" onClick={() => setShowForge(false)} aria-label="Close forge">
+              <button className="ghost-button" type="button" onClick={() => setShowForge(false)} aria-label="Close">
                 <X size={16} /> Close
               </button>
             </div>
@@ -179,7 +205,7 @@ export function MultiplayerLobby({
               onEquip={onEquipCosmetic}
               onUnequip={onUnequipSlot}
             />
-          </LiquidGlassPanel>
+          </div>
         </div>
       )}
     </div>
