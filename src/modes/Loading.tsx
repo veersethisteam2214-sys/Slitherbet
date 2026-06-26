@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { drawWordmarkFrame } from "../components/wordmarkCanvas";
 
 type LoadingProps = {
@@ -6,7 +6,7 @@ type LoadingProps = {
   duration?: number;
 };
 
-const phases = ["Warming the arena", "Shuffling the deck", "Raptors on patrol", "You're in"];
+const phases = ["Lighting crystal veins", "Sealing the wager rail", "Awakening the cave", "Dropping in"];
 
 export function Loading({ onDone, duration = 3200 }: LoadingProps) {
   const [progress, setProgress] = useState(0);
@@ -75,13 +75,38 @@ export function Loading({ onDone, duration = 3200 }: LoadingProps) {
     <div className="loading-screen">
       <div className="loading-vignette" aria-hidden />
       <div className="loading-noise" aria-hidden />
+      <div className="loading-crystal-field" aria-hidden>
+        <span className="lc lc-a" />
+        <span className="lc lc-b" />
+        <span className="lc lc-c" />
+        <span className="lc lc-d" />
+      </div>
 
       <div className="loading-stage">
+        <div className="loading-cave-preview" aria-hidden>
+          <div className="loader-stalactites">
+            <i /><i /><i /><i /><i /><i />
+          </div>
+          <div className="loader-orb orb-a">1.08x</div>
+          <div className="loader-orb orb-b">1.33x</div>
+          <div className="loader-snake">
+            {Array.from({ length: 13 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
+            <b />
+          </div>
+          <div className="loader-platform platform-a" />
+          <div className="loader-platform platform-b" />
+          <div className="loader-platform platform-c" />
+        </div>
+
         <div ref={wrapRef} className="loading-wordmark-band">
           <canvas ref={canvasRef} className="loading-wordmark-canvas" aria-hidden />
         </div>
 
         <div className="loading-status">
+          <div className="loading-status-head">
+            <span>Session boot</span>
+            <strong>Crystal Cave</strong>
+          </div>
           <div className="loading-track">
             <i style={{ width: `${pct}%` }} />
           </div>
@@ -93,9 +118,9 @@ export function Loading({ onDone, duration = 3200 }: LoadingProps) {
       </div>
 
       <footer className="loading-footer">
-        <span className="loading-mark">SlitherBet</span>
+        <span className="loading-mark">SlitherBet arcade client</span>
         <span className="loading-credit">
-          a <strong>VKbets</strong> production
+          demo stakes · <strong>play money</strong>
         </span>
       </footer>
     </div>

@@ -320,34 +320,79 @@ function drawBird(
 
 function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, up: boolean, tint: string) {
   const dir = up ? -1 : 1;
-  ctx.beginPath();
-  ctx.moveTo(x - h * 0.22, y);
-  ctx.lineTo(x + h * 0.22, y);
-  ctx.lineTo(x + h * 0.05, y + h * dir);
-  ctx.lineTo(x - h * 0.05, y + h * dir);
-  ctx.closePath();
-  const g = ctx.createLinearGradient(x, y, x, y + h * dir);
-  g.addColorStop(0, tint);
-  g.addColorStop(1, "rgba(10,8,18,0.2)");
+  const w = h * 0.28;
+  const tipY = y + h * dir;
+  const g = ctx.createLinearGradient(x - w, y, x + w, tipY);
+  g.addColorStop(0, "rgba(255,255,255,0.75)");
+  g.addColorStop(0.18, tint);
+  g.addColorStop(1, "rgba(18,12,38,0.42)");
+
   ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(x - w, y);
+  ctx.lineTo(x - w * 0.22, tipY);
+  ctx.lineTo(x + w * 0.18, tipY);
+  ctx.lineTo(x + w, y);
+  ctx.closePath();
   ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.24)";
+  ctx.beginPath();
+  ctx.moveTo(x - w * 0.12, y);
+  ctx.lineTo(x - w * 0.04, tipY);
+  ctx.lineTo(x + w * 0.16, y);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - w, y);
+  ctx.lineTo(x - w * 0.22, tipY);
+  ctx.lineTo(x + w * 0.18, tipY);
+  ctx.lineTo(x + w, y);
+  ctx.stroke();
+}
+
+function drawCrystalCluster(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  up: boolean,
+  primary: string,
+  secondary: string,
+) {
+  ctx.save();
+  ctx.shadowColor = primary;
+  ctx.shadowBlur = 18 * scale;
+  drawCrystal(ctx, x, y, 62 * scale, up, primary);
+  drawCrystal(ctx, x - 22 * scale, y + (up ? 12 : -12) * scale, 42 * scale, up, secondary);
+  drawCrystal(ctx, x + 24 * scale, y + (up ? 10 : -10) * scale, 48 * scale, up, primary);
+  drawCrystal(ctx, x + 4 * scale, y + (up ? 20 : -20) * scale, 34 * scale, up, secondary);
+  ctx.restore();
 }
 
 function drawPlatform(ctx: CanvasRenderingContext2D, cx: number, laneY: number, pw: number, neon: boolean) {
   const top = laneY + 12;
-  const hgt = 26;
+  const hgt = 30;
   const g = ctx.createLinearGradient(0, top, 0, top + hgt);
-  g.addColorStop(0, neon ? "#241a40" : "#2c2438");
-  g.addColorStop(1, neon ? "#0d0a1c" : "#140f1b");
+  g.addColorStop(0, neon ? "#34305f" : "#3a3650");
+  g.addColorStop(0.45, neon ? "#191638" : "#1c1a2b");
+  g.addColorStop(1, neon ? "#080715" : "#0b0a12");
   ctx.fillStyle = g;
   roundRect(ctx, cx - pw / 2, top, pw, hgt, 8);
   ctx.fill();
-  ctx.strokeStyle = neon ? "rgba(41,240,255,0.5)" : "rgba(120,255,224,0.4)";
+  ctx.strokeStyle = neon ? "rgba(41,240,255,0.65)" : "rgba(120,255,224,0.52)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(cx - pw / 2 + 7, top + 1.5);
   ctx.lineTo(cx + pw / 2 - 7, top + 1.5);
   ctx.stroke();
+  ctx.fillStyle = "rgba(0,0,0,0.24)";
+  ctx.beginPath();
+  ctx.ellipse(cx, top + hgt + 6, pw * 0.42, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: number, laneY: number, neon: boolean) {
@@ -355,11 +400,38 @@ function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: 
   const h = rect.height;
 
   const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, neon ? "#0a0518" : "#0d0813");
-  bg.addColorStop(0.5, neon ? "#08060f" : "#0a0a15");
-  bg.addColorStop(1, neon ? "#040308" : "#06050a");
+  bg.addColorStop(0, neon ? "#09051b" : "#101327");
+  bg.addColorStop(0.42, neon ? "#090a18" : "#0b1724");
+  bg.addColorStop(1, neon ? "#040308" : "#05070d");
   ctx.fillStyle = bg;
   ctx.fillRect(-20, -20, w + 40, h + 40);
+
+  for (let layer = 0; layer < 3; layer += 1) {
+    const parallax = 0.08 + layer * 0.055;
+    const baseY = laneY - 96 - layer * 46;
+    const ridgeStep = 190 - layer * 22;
+    const firstRidge = Math.floor(camX * parallax / ridgeStep) - 2;
+    ctx.fillStyle = layer === 0 ? "rgba(38,52,79,0.22)" : layer === 1 ? "rgba(28,39,63,0.34)" : "rgba(16,24,42,0.62)";
+    ctx.beginPath();
+    ctx.moveTo(-20, 0);
+    for (let i = 0; i < Math.ceil(w / ridgeStep) + 5; i += 1) {
+      const idx = firstRidge + i;
+      const sx = idx * ridgeStep - camX * parallax;
+      const py = baseY + Math.sin(idx * 1.33) * 28 + Math.cos(idx * 0.71) * 18;
+      ctx.lineTo(sx, py);
+      ctx.lineTo(sx + ridgeStep * 0.5, py + 34 + layer * 12);
+    }
+    ctx.lineTo(w + 20, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const mist = ctx.createLinearGradient(0, laneY - 70, 0, laneY + 160);
+  mist.addColorStop(0, "rgba(91, 207, 255, 0)");
+  mist.addColorStop(0.42, neon ? "rgba(57, 240, 255, 0.09)" : "rgba(107, 222, 255, 0.08)");
+  mist.addColorStop(1, "rgba(155, 123, 255, 0)");
+  ctx.fillStyle = mist;
+  ctx.fillRect(0, laneY - 100, w, 300);
 
   const ceilY = Math.max(54, laneY - 150);
   const floorY = Math.min(h - 44, laneY + 168);
@@ -375,7 +447,7 @@ function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: 
     const idx = first + i;
     const sx = idx * tile - camX;
     const len = 16 + Math.abs(Math.sin(idx * 1.3)) * 42;
-    ctx.fillStyle = rockEdge;
+    ctx.fillStyle = idx % 3 === 0 ? "#27283f" : rockEdge;
     ctx.beginPath();
     ctx.moveTo(sx - 12, ceilY);
     ctx.lineTo(sx + 12, ceilY);
@@ -384,20 +456,29 @@ function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: 
     ctx.fill();
     if (idx % 4 === 0) {
       ctx.save();
-      ctx.shadowColor = neon ? "#29f0ff" : "#63ffe0";
-      ctx.shadowBlur = 12;
-      drawCrystal(ctx, sx, ceilY + len, 15, false, neon ? "rgba(41,240,255,0.85)" : "rgba(99,255,224,0.8)");
+      drawCrystalCluster(
+        ctx,
+        sx + 8,
+        ceilY + len + 2,
+        0.34 + (idx % 3) * 0.08,
+        false,
+        neon ? "rgba(41,240,255,0.88)" : "rgba(112,225,255,0.82)",
+        "rgba(196,122,255,0.78)",
+      );
       ctx.restore();
     }
   }
 
-  ctx.fillStyle = rock;
+  const floorGrad = ctx.createLinearGradient(0, floorY - 40, 0, h);
+  floorGrad.addColorStop(0, "#1c1a2c");
+  floorGrad.addColorStop(1, "#07060b");
+  ctx.fillStyle = floorGrad;
   ctx.fillRect(-20, floorY, w + 40, h - floorY + 20);
   for (let i = 0; i < count; i += 1) {
     const idx = first + i;
     const sx = idx * tile - camX;
     const len = 18 + Math.abs(Math.cos(idx * 1.7)) * 48;
-    ctx.fillStyle = rockEdge;
+    ctx.fillStyle = idx % 4 === 0 ? "#24233a" : rockEdge;
     ctx.beginPath();
     ctx.moveTo(sx - 13, floorY);
     ctx.lineTo(sx + 13, floorY);
@@ -406,12 +487,30 @@ function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: 
     ctx.fill();
     if (idx % 5 === 0) {
       ctx.save();
-      ctx.shadowColor = neon ? "#ff39c0" : "#9b7bff";
-      ctx.shadowBlur = 12;
-      drawCrystal(ctx, sx, floorY - len, 17, true, neon ? "rgba(255,57,192,0.85)" : "rgba(155,123,255,0.8)");
+      drawCrystalCluster(
+        ctx,
+        sx - 8,
+        floorY - len - 2,
+        0.42 + (idx % 4) * 0.08,
+        true,
+        neon ? "rgba(255,57,192,0.86)" : "rgba(174,133,255,0.82)",
+        "rgba(88,229,255,0.74)",
+      );
       ctx.restore();
     }
   }
+
+  for (let i = 0; i < 36; i += 1) {
+    const px = (i * 173 - camX * (0.16 + (i % 5) * 0.014)) % (w + 120) - 60;
+    const py = 58 + ((i * 97) % Math.max(140, h - 140));
+    const twinkle = 0.35 + Math.sin(performance.now() * 0.0015 + i) * 0.25;
+    ctx.globalAlpha = Math.max(0.08, twinkle);
+    ctx.fillStyle = i % 3 === 0 ? "#b98cff" : i % 3 === 1 ? "#7af7ff" : "#7dffb3";
+    ctx.beginPath();
+    ctx.arc(px, py, 1.3 + (i % 4) * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   const vg = ctx.createRadialGradient(w / 2, laneY, h * 0.2, w / 2, laneY, h * 0.85);
   vg.addColorStop(0, "transparent");
@@ -578,6 +677,19 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
     const pulse = isNext ? 1 + Math.sin(state.wiggle * 5) * 0.06 : 1;
     const r = COIN_R * pulse;
 
+    const prevCx = screenX(levelX(n - 1));
+    if (prevCx > -STEP && prevCx < rect.width + STEP) {
+      const link = ctx.createLinearGradient(prevCx, laneY, cx, laneY);
+      link.addColorStop(0, passed ? "rgba(124,255,208,0.5)" : "rgba(255,255,255,0.16)");
+      link.addColorStop(1, isNext ? "rgba(255,206,58,0.72)" : "rgba(255,255,255,0.18)");
+      ctx.strokeStyle = link;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(prevCx + COIN_R, laneY);
+      ctx.lineTo(cx - COIN_R, laneY);
+      ctx.stroke();
+    }
+
     if (passed || isNext) {
       ctx.save();
       ctx.shadowColor = passed ? "rgba(55, 224, 122, 0.8)" : "rgba(255, 206, 58, 0.85)";
@@ -602,9 +714,12 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
       coin.addColorStop(1, "#5b6675");
     }
     ctx.fillStyle = coin;
+    ctx.shadowColor = passed ? "#37e07a" : isNext ? "#ffce3a" : "rgba(255,255,255,0.5)";
+    ctx.shadowBlur = passed || isNext ? 20 : 6;
     ctx.beginPath();
     ctx.arc(cx, laneY, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(255,255,255,0.5)";
     ctx.beginPath();
@@ -612,11 +727,11 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
     ctx.stroke();
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "#10201c";
-    ctx.font = "800 15px 'Space Grotesk', Inter, system-ui";
+    ctx.fillStyle = "#15120b";
+    ctx.font = "900 17px 'Space Grotesk', Inter, system-ui";
     ctx.fillText(`${multAt(n, diff.survive).toFixed(2)}x`, cx, laneY + 5);
 
-    ctx.fillStyle = passed ? "#bdf7d4" : isNext ? "#ffe9a8" : "rgba(220,230,236,0.7)";
+    ctx.fillStyle = passed ? "#bdf7d4" : isNext ? "#ffe9a8" : "rgba(220,230,236,0.78)";
     ctx.font = "700 11px Inter, system-ui";
     ctx.fillText(formatMoney(state.stake * multAt(n, diff.survive)), cx, laneY + r + 16);
   }

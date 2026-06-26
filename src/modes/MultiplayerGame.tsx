@@ -331,6 +331,58 @@ function updateGame(game: GameState, tier: Tier, dt: number, pointer: Segment | 
   if (game.snakes.filter((snake) => snake.alive).length === 1) completeGame(game);
 }
 
+function drawCaveShard(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  h: number,
+  angle: number,
+  color: string,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  const w = h * 0.22;
+  const g = ctx.createLinearGradient(-w, 0, w, -h);
+  g.addColorStop(0, "rgba(255,255,255,0.78)");
+  g.addColorStop(0.22, color);
+  g.addColorStop(1, "rgba(24,18,48,0.28)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-w, 0);
+  ctx.lineTo(-w * 0.2, -h);
+  ctx.lineTo(w * 0.18, -h);
+  ctx.lineTo(w, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.1, 0);
+  ctx.lineTo(0, -h);
+  ctx.lineTo(w * 0.18, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCaveGemCluster(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  colorA: string,
+  colorB: string,
+) {
+  ctx.save();
+  ctx.shadowColor = colorA;
+  ctx.shadowBlur = 18 * scale;
+  drawCaveShard(ctx, x, y, 62 * scale, 0, colorA);
+  drawCaveShard(ctx, x - 24 * scale, y + 4 * scale, 42 * scale, -0.22, colorB);
+  drawCaveShard(ctx, x + 25 * scale, y + 5 * scale, 48 * scale, 0.24, colorA);
+  drawCaveShard(ctx, x + 4 * scale, y + 14 * scale, 34 * scale, 0.05, colorB);
+  ctx.restore();
+}
+
 function drawCaveArena(
   ctx: CanvasRenderingContext2D,
   rect: DOMRect,
@@ -340,12 +392,32 @@ function drawCaveArena(
   camY: number,
   neon: boolean,
 ) {
-  const bg = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, 40, arenaCenter.x, arenaCenter.y, Math.max(rect.width, rect.height) * 0.7);
-  bg.addColorStop(0, neon ? "#120a22" : "#0f0a18");
-  bg.addColorStop(0.55, neon ? "#080510" : "#0a0812");
+  const bg = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, 40, arenaCenter.x, arenaCenter.y, Math.max(rect.width, rect.height) * 0.75);
+  bg.addColorStop(0, neon ? "#171136" : "#16263a");
+  bg.addColorStop(0.55, neon ? "#090513" : "#0b101f");
   bg.addColorStop(1, "#030208");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, rect.width, rect.height);
+
+  for (let layer = 0; layer < 3; layer += 1) {
+    const parallax = 0.03 + layer * 0.025;
+    const step = 190 - layer * 24;
+    const baseY = rect.height * (0.2 + layer * 0.13);
+    const first = Math.floor(camX * parallax / step) - 2;
+    ctx.fillStyle = layer === 0 ? "rgba(55,70,104,0.18)" : layer === 1 ? "rgba(32,45,75,0.28)" : "rgba(17,24,48,0.48)";
+    ctx.beginPath();
+    ctx.moveTo(-20, 0);
+    for (let i = 0; i < Math.ceil(rect.width / step) + 5; i += 1) {
+      const idx = first + i;
+      const sx = idx * step - camX * parallax;
+      const sy = baseY + Math.sin(idx * 1.2) * 30;
+      ctx.lineTo(sx, sy);
+      ctx.lineTo(sx + step * 0.45, sy + 46 + layer * 16);
+    }
+    ctx.lineTo(rect.width + 20, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   const floor = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, 20, arenaCenter.x, arenaCenter.y, arenaR);
   floor.addColorStop(0, neon ? "#1a1230" : "#14101f");
@@ -378,18 +450,29 @@ function drawCaveArena(
     ctx.fill();
     if (idx % 4 === 0) {
       ctx.save();
-      ctx.shadowColor = neon ? "#29f0ff" : "#63ffe0";
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = neon ? "rgba(41,240,255,0.7)" : "rgba(99,255,224,0.65)";
-      ctx.beginPath();
-      ctx.moveTo(sx - 4, sy - len);
-      ctx.lineTo(sx + 4, sy - len);
-      ctx.lineTo(sx, sy - len - 12);
-      ctx.closePath();
-      ctx.fill();
+      drawCaveGemCluster(
+        ctx,
+        sx,
+        sy - len,
+        0.35 + (idx % 5) * 0.04,
+        neon ? "rgba(41,240,255,0.82)" : "rgba(112,225,255,0.78)",
+        "rgba(196,122,255,0.72)",
+      );
       ctx.restore();
     }
   }
+
+  for (let i = 0; i < 46; i += 1) {
+    const px = (i * 157 - camX * (0.08 + (i % 5) * 0.012)) % (rect.width + 120) - 60;
+    const py = (i * 89 - camY * 0.03) % (rect.height + 80) - 40;
+    const twinkle = 0.22 + Math.sin(performance.now() * 0.0014 + i) * 0.16;
+    ctx.globalAlpha = Math.max(0.06, twinkle);
+    ctx.fillStyle = i % 3 === 0 ? "#9b7bff" : i % 3 === 1 ? "#63ffe0" : "#ffd447";
+    ctx.beginPath();
+    ctx.arc(px, py, 1.2 + (i % 4) * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   const vg = ctx.createRadialGradient(arenaCenter.x, arenaCenter.y, arenaR * 0.3, arenaCenter.x, arenaCenter.y, arenaR);
   vg.addColorStop(0, "transparent");

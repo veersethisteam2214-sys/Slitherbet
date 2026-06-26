@@ -1,5 +1,5 @@
-import { Coins, Layers, Mountain, User, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Coins, Layers, Mountain, Sparkles, Trophy, User, Users } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { SnakeWordmark } from "../components/SnakeWordmark";
 import { Button } from "../components/ui/Button";
 import { GlassPanel } from "../components/ui/GlassPanel";
@@ -66,7 +66,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
           <div className="brand-mark"><BrandMark /></div>
           <div className="brand-copy">
             <span className="brand-name">SlitherBet</span>
-            <span className="brand-sub">Skill arena · demo stakes</span>
+            <span className="brand-sub">Crystal cave arcade</span>
           </div>
         </div>
         <GlassPanel className="wallet-chip">
@@ -80,9 +80,32 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
       </div>
 
       <div className="menu-body">
-        <p className="hero-line">
-          One slip ends the run. Claim your tag, pick a table, and play for the pot.
-        </p>
+        <section className="menu-cave-window" aria-label="SlitherBet cave preview">
+          <div className="menu-cave-bg" aria-hidden>
+            <span className="cave-glow glow-a" />
+            <span className="cave-glow glow-b" />
+            <span className="cave-crystal crystal-a" />
+            <span className="cave-crystal crystal-b" />
+            <span className="cave-crystal crystal-c" />
+            <span className="cave-platform cp-a" />
+            <span className="cave-platform cp-b" />
+            <span className="cave-platform cp-c" />
+            <span className="preview-orb orb-1">1.08x</span>
+            <span className="preview-orb orb-2">1.33x</span>
+            <span className="preview-snake">
+              {Array.from({ length: 15 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
+              <b />
+            </span>
+          </div>
+          <div className="menu-cave-copy">
+            <span className="eyebrow"><Sparkles size={13} /> New cave build</span>
+            <h2>Arcade snake with real table energy.</h2>
+          </div>
+          <div className="menu-cave-stats">
+            <span><Trophy size={14} /> Top six paid</span>
+            <span><Mountain size={14} /> Crystal cave</span>
+          </div>
+        </section>
 
         <GlassPanel className="ign-gate" elevated>
           <div className="ign-row">
@@ -99,7 +122,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
                 maxLength={16}
                 value={draft}
                 hint={
-                  valid ? `Playing as ${draft.trim()}` : "3–16 chars · letters, numbers, underscore"
+                  valid ? `Playing as ${draft.trim()}` : "3-16 chars · letters, numbers, underscore"
                 }
                 hintOk={valid}
                 onChange={(e) => setDraft(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
@@ -122,7 +145,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
             }
             stat="~12s a run"
             title="Cave Run"
-            description="Leap ledge to ledge through the dark. Stack the multiplier and bank before a raptor swoops."
+            description="Ride the ledges, collect multipliers, and cash out before the cave patrol catches you."
             points={[
               <>
                 <Coins size={14} /> Multiplier climbs every ledge
@@ -144,7 +167,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
             }
             stat="Up to 100 seats"
             title="Tournaments"
-            description="Buy into a scheduled table and outlast the field. The final six split the pot."
+            description="Enter a buy-in table, grow your snake, and fight through the final-six money bubble."
             points={[
               <>
                 <Coins size={14} /> Top-six payout ladder
