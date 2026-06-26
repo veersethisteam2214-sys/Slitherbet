@@ -18,7 +18,7 @@
 
   color: var(--text);
   background: var(--bg-0);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,7 +50,7 @@ h1, h2, h3, p {
 .brand-title,
 .brand-title,
 h1 {
-  font-family: "Space Grotesk", Inter, system-ui;
+  font-family: "Outfit", "DM Sans", system-ui;
   letter-spacing: -0.02em;
 }
 
@@ -61,6 +61,7 @@ h1 {
   padding: 20px clamp(14px, 2.4vw, 30px);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 .eyebrow {
@@ -377,8 +378,11 @@ h1 {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.menu-screen::-webkit-scrollbar { display: none; }
 .menu-backdrop {
   position: absolute;
   inset: 0;
@@ -1594,7 +1598,7 @@ h1 {
   transform: scale(1.06);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-.fab.open .fab-trigger { color: var(--text); }
+.fab.open .fab-trigger { color: var(--accent); }
 .fab-options {
   display: flex;
   flex-direction: column;
@@ -1628,21 +1632,192 @@ h1 {
 .fab-item.active .fab-item-icon { color: var(--accent); }
 .fab-item-icon { display: inline-flex; color: var(--muted); }
 
+.fab--single {
+  top: clamp(88px, 14vh, 130px);
+  bottom: auto;
+  right: clamp(14px, 2vw, 24px);
+}
+.fab--match {
+  bottom: clamp(20px, 3vh, 32px);
+  right: clamp(14px, 2vw, 24px);
+}
+.fab-trigger {
+  color: #9aab9e;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(145deg, rgba(16, 18, 20, 0.96), rgba(8, 10, 12, 0.96));
+}
+.fab.open .fab-trigger { color: var(--accent); }
+
+/* ---------- Single player top bar ---------- */
+.sp-topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.sp-back { justify-self: start; }
+.sp-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+}
+.sp-brand-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+.sp-brand-text {
+  font-family: "Outfit", system-ui;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+.sp-mode-badge {
+  justify-self: center;
+  text-align: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+}
+.sp-mode-badge strong {
+  display: block;
+  font-family: "Outfit", system-ui;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+.sp-topbar .match-wallet { justify-self: end; }
+
+.stake-input {
+  width: 88px;
+  text-align: center;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 700 1rem "Outfit", system-ui;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.stake-input::-webkit-outer-spin-button,
+.stake-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.single-screen .game-logo { display: none; }
+
+/* ---------- Liquid glass panels ---------- */
+.liquid-glass-panel {
+  display: block;
+  width: 100%;
+}
+.liquid-glass-panel--elevated { filter: brightness(1.04); }
+
+/* ---------- Multiplayer lobby premium ---------- */
+.lobby-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.lobby-hero-title strong {
+  font-family: "Outfit", system-ui;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+.lobby-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.forge-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: border-color 0.18s, transform 0.2s;
+}
+.forge-toggle:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.lobby-layout-premium {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+}
+.forge-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.forge-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(6px);
+}
+.forge-panel {
+  position: relative;
+  width: min(920px, 96vw);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  padding: 18px 20px 22px;
+}
+.forge-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.forge-head h2 {
+  font-family: "Outfit", system-ui;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+.lobby-detail-inner {
+  padding: 18px 18px 20px;
+  display: grid;
+  gap: 12px;
+}
+
 /* ---------- Neon theme ---------- */
 .theme-neon {
-  --bg-0: #050508;
-  --bg-1: #0a0a0f;
-  --panel: rgba(255, 255, 255, 0.03);
-  --panel-solid: rgba(8, 8, 12, 0.94);
-  --accent: #d4b87a;
-  --sage: #8aac96;
+  --bg-0: #030304;
+  --bg-1: #060608;
+  --panel: rgba(255, 255, 255, 0.025);
+  --panel-solid: rgba(6, 6, 8, 0.96);
+  --accent: #3dff9a;
+  --sage: #3dff9a;
   --teal: var(--sage);
-  --gold: var(--accent);
-  --pink: #b89870;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f0ece6;
-  --muted: #8c8882;
+  --gold: #d4b87a;
+  --pink: #ff6b8a;
+  --border: rgba(61, 255, 154, 0.1);
+  --border-strong: rgba(61, 255, 154, 0.28);
+  --text: #eef8f2;
+  --muted: #7a8a82;
+}
+.theme-neon body,
+.theme-neon.app-shell {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% -5%, rgba(61, 255, 154, 0.07), transparent 55%),
+    linear-gradient(180deg, #030304 0%, #060608 50%, #030304 100%);
 }
 .theme-neon .cabinet {
   background: linear-gradient(160deg, #160f3a, #07040f);

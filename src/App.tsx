@@ -166,7 +166,7 @@ export function App() {
       active: sfxOn,
     },
     {
-      label: theme === "neon" ? "Neon mode" : "Arcade mode",
+      label: theme === "arcade" ? "Switch to neon" : "Switch to arcade",
       Icon: theme === "neon" ? <Moon size={16} /> : <Sun size={16} />,
       onClick: toggleTheme,
       active: theme === "neon",
@@ -178,8 +178,10 @@ export function App() {
     },
   ];
 
+  const fabPlacement = screen === "single" ? "single" : screen === "match" ? "match" : "default";
+
   return (
-    <main className={`app-shell ${theme === "neon" ? "theme-neon" : ""}`}>
+    <main className={`app-shell ${theme === "neon" ? "theme-neon" : "theme-arcade"} screen-${screen}`}>
       {screen === "menu" && (
         <Menu
           balance={balance}
@@ -231,7 +233,7 @@ export function App() {
 
       {showBets && <BetHistory bets={bets} onClose={() => setShowBets(false)} />}
 
-      <FloatingActionMenu options={fabOptions} />
+      <FloatingActionMenu options={fabOptions} placement={fabPlacement} />
     </main>
   );
 }

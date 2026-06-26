@@ -10,13 +10,14 @@ export type FabOption = {
 
 type FloatingActionMenuProps = {
   options: FabOption[];
+  placement?: "default" | "single" | "match";
 };
 
-export function FloatingActionMenu({ options }: FloatingActionMenuProps) {
+export function FloatingActionMenu({ options, placement = "default" }: FloatingActionMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`fab ${open ? "open" : ""}`}>
+    <div className={`fab fab--${placement} ${open ? "open" : ""}`}>
       <div className="fab-options" role="menu" aria-hidden={!open}>
         {options.map((option, index) => (
           <button

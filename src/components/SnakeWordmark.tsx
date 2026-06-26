@@ -14,7 +14,6 @@ export function SnakeWordmark({ theme }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const trail: { x: number; y: number }[] = [];
     let raf = 0;
     let W = 0;
     let H = 0;
@@ -32,8 +31,7 @@ export function SnakeWordmark({ theme }: Props) {
     };
 
     const render = (now: number) => {
-      const t = (now - start) / 1000;
-      drawWordmarkFrame(ctx, W, H, t, theme, trail);
+      drawWordmarkFrame(ctx, W, H, (now - start) / 1000, theme);
       raf = requestAnimationFrame(render);
     };
 

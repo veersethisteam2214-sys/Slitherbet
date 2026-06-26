@@ -1,6 +1,7 @@
 import { ArrowLeft, Info, Minus, Palette, Play, Plus, RefreshCw, Repeat, Skull, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "../audio";
+import { SnakeLogo } from "../components/SnakeLogo";
 import { formatMoney, rand, type BetRecord } from "../shared";
 import { LiveBoard } from "./LiveBoard";
 
@@ -32,13 +33,13 @@ const SNAKE_COLORS = [
 const STEP = 168;
 const COIN_R = 30;
 const CROSS_DURATION = 0.5;
-const CHOP_TIME = 0.18;
+const CHOP_TIME = 0.62;
 const BASE_SEG = 4;
 const MAX_SEG = 40;
 const SEG_SPACING = 11;
 const HEAD_R = 13;
 
-type Ambient = { gap: number; y: number; v: number; size: number; rot: number; spin: number };
+type Ambient = { gap: number; y: number; v: number; size: number; rot: number; spin: number; frozen: boolean };
 type Burst = { wx: number; t: number; amount: number };
 
 type SPState = {
@@ -148,21 +149,29 @@ function update(state: SPState, dt: number, holding: boolean, width: number, hei
   if (state.spawnTimer <= 0 && state.status !== "ready") {
     const firstGap = Math.floor(state.camX / STEP);
     const visibleGaps = Math.ceil(width / STEP) + 1;
-    const gap = firstGap + Math.floor(Math.random() * visibleGaps);
-    state.ambient.push({
-      gap,
-      y: -40,
-      v: rand(260, 420),
-      size: rand(0.7, 1),
-      rot: 0,
-      spin: rand(-1.2, 1.2),
-    });
-    state.spawnTimer = rand(0.18, 0.4);
+    const aheadMin = state.level + 1;
+    const aheadMax = firstGap + visibleGaps;
+    if (aheadMax >= aheadMin) {
+      const gap = aheadMin + Math.floor(Math.random() * (aheadMax - aheadMin + 1));
+      state.ambient.push({
+        gap,
+        y: -48,
+        v: rand(240, 380),
+        size: rand(0.75, 1.05),
+        rot: 0,
+        spin: rand(-0.8, 0.8),
+        frozen: false,
+      });
+    }
+    state.spawnTimer = rand(0.22, 0.45);
   }
   for (let i = state.ambient.length - 1; i >= 0; i -= 1) {
     const a = state.ambient[i];
-    a.y += a.v * dt;
-    a.rot += a.spin * dt;
+    if (a.gap <= state.level) a.frozen = true;
+    if (!a.frozen) {
+      a.y += a.v * dt;
+      a.rot += a.spin * dt;
+    }
     if (a.y > height + 60) state.ambient.splice(i, 1);
   }
 
@@ -210,30 +219,41 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-// A diving cave raptor. Local space: beak points DOWN (+y), tail UP (-y).
-function drawBird(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, rot: number, danger: boolean, flap: number) {
+// Cave raptor — local space: beak points DOWN (+y). strike 0–1 extends talons on impact.
+function drawBird(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  rot: number,
+  danger: boolean,
+  flap: number,
+  strike = 0,
+) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
   ctx.scale(scale, scale);
 
-  const wing = Math.sin(flap * 11) * 0.55;
-  const dark = danger ? "#3a0a10" : "#16121f";
-  const lite = danger ? "#7d1622" : "#3a3052";
+  const wing = Math.sin(flap * 11) * (0.55 * (1 - strike * 0.85));
+  const dark = danger ? "#2a080c" : "#16121f";
+  const lite = danger ? "#6a1824" : "#3a3052";
+  const feather = danger ? "#8a2030" : "#4a3a62";
 
   if (danger) {
-    ctx.shadowColor = "rgba(255,60,60,0.85)";
-    ctx.shadowBlur = 26;
+    ctx.shadowColor = strike > 0.5 ? "rgba(255,80,60,0.9)" : "rgba(255,60,60,0.55)";
+    ctx.shadowBlur = 18 + strike * 14;
   }
 
   const wingGrad = ctx.createLinearGradient(0, -16, 0, 8);
-  wingGrad.addColorStop(0, lite);
+  wingGrad.addColorStop(0, feather);
   wingGrad.addColorStop(1, dark);
   ctx.fillStyle = wingGrad;
+  const wingTuck = strike * 0.7;
   for (const dir of [-1, 1]) {
     ctx.save();
     ctx.scale(dir, 1);
-    ctx.rotate(-0.45 - wing);
+    ctx.rotate(-0.45 - wing + wingTuck);
     ctx.beginPath();
     ctx.moveTo(0, -2);
     ctx.quadraticCurveTo(20, -16, 42, -6);
@@ -276,6 +296,25 @@ function drawBird(ctx: CanvasRenderingContext2D, x: number, y: number, scale: nu
   ctx.arc(-2.4, 10, 1.5, 0, Math.PI * 2);
   ctx.arc(2.4, 10, 1.5, 0, Math.PI * 2);
   ctx.fill();
+
+  if (strike > 0.2) {
+    ctx.strokeStyle = "#1a1010";
+    ctx.lineWidth = 1.4;
+    ctx.lineCap = "round";
+    for (const dir of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(dir * 4, 16);
+      ctx.lineTo(dir * (10 + strike * 8), 28 + strike * 6);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(dir * (10 + strike * 8), 28 + strike * 6);
+      ctx.lineTo(dir * (8 + strike * 6), 32 + strike * 8);
+      ctx.moveTo(dir * (10 + strike * 8), 28 + strike * 6);
+      ctx.lineTo(dir * (12 + strike * 8), 32 + strike * 8);
+      ctx.stroke();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -390,12 +429,17 @@ function drawSnake(
   wiggle: number,
   amp: number,
   dead: boolean,
+  neon: boolean,
 ) {
-  const light = dead ? "#b7c2bf" : shade(base, 0.4);
+  const light = dead ? "#b7c2bf" : shade(base, neon ? 0.55 : 0.4);
   const mid = dead ? "#8b9794" : base;
   const dark = dead ? "#5d6664" : shade(base, -0.32);
 
   ctx.save();
+  if (neon && !dead) {
+    ctx.shadowColor = base;
+    ctx.shadowBlur = 14;
+  }
   ctx.fillStyle = "rgba(0,0,0,0.28)";
   for (let i = segCount - 1; i >= 0; i -= 1) {
     const sx = headX - i * SEG_SPACING;
@@ -421,6 +465,10 @@ function drawSnake(
     grad.addColorStop(0.55, mid);
     grad.addColorStop(1, dark);
     ctx.fillStyle = grad;
+    if (neon && !dead) {
+      ctx.shadowColor = base;
+      ctx.shadowBlur = 10 * (1 - t * 0.4);
+    }
     ctx.beginPath();
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
     ctx.fill();
@@ -576,27 +624,64 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
   for (const a of state.ambient) {
     const ax = screenX(levelX(a.gap) + STEP * 0.5);
     if (ax < -50 || ax > rect.width + 50) continue;
-    drawBird(ctx, ax, a.y, a.size * 1.25, a.rot * 0.4, false, state.wiggle + a.gap);
+    drawBird(ctx, ax, a.y, a.size * 1.25, a.rot * 0.35, false, state.wiggle + a.gap);
   }
 
   const headX = screenX(state.snakeWX);
   const dead = state.status === "dead";
   const amp = state.status === "crossing" ? 5.5 : 3;
-  drawSnake(ctx, headX, laneY, state.targetSegments, snakeColor, state.wiggle, amp, dead);
+  drawSnake(ctx, headX, laneY, state.targetSegments, snakeColor, state.wiggle, amp, dead, neon);
 
   if (state.status === "crossing" || state.status === "dead") {
     const diveX = screenX(state.snakeWX);
-    let birdY = -120;
+    let birdY = -160;
+    let birdRot = -0.4;
+    let birdScale = 1.5;
+    let strike = 0;
     let show = false;
     if (!state.crossSurvive && state.chopFired) {
       const p = Math.min(1, state.chopAnim / CHOP_TIME);
-      birdY = -120 + (laneY + 120) * p;
+      const diveEase = 1 - Math.pow(1 - Math.min(1, p / 0.82), 2.4);
+      birdY = -160 + (laneY - 6 - (-160)) * diveEase;
+      birdRot = -0.65 + diveEase * 0.65;
+      birdScale = 1.4 + diveEase * 0.9;
+      strike = Math.max(0, (p - 0.72) / 0.28);
       show = true;
+      if (p > 0.72 && p < 0.95) {
+        const flash = (p - 0.72) / 0.23;
+        ctx.save();
+        ctx.globalAlpha = (1 - flash) * 0.45;
+        ctx.fillStyle = "#ff6a4a";
+        ctx.beginPath();
+        ctx.arc(diveX, laneY, 28 + flash * 40, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     } else if (dead && !state.crossSurvive) {
-      birdY = laneY;
+      birdY = laneY - 4;
+      birdRot = 0.05;
+      birdScale = 2.1;
+      strike = 1;
       show = true;
     }
-    if (show) drawBird(ctx, diveX, birdY, 1.8, 0, true, state.wiggle);
+    if (show) {
+      if (strike < 0.5) {
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        drawBird(ctx, diveX, birdY + 36, birdScale * 0.75, birdRot, true, state.wiggle, 0);
+        ctx.restore();
+      }
+      drawBird(ctx, diveX, birdY, birdScale, birdRot, true, state.wiggle, strike);
+      if (strike > 0.35) {
+        for (let f = 0; f < 6; f += 1) {
+          const ang = (f / 6) * Math.PI * 2 + state.wiggle * 2;
+          ctx.fillStyle = f % 2 ? "#3a2030" : "#6a3040";
+          ctx.beginPath();
+          ctx.arc(diveX + Math.cos(ang) * (18 + strike * 22), laneY + Math.sin(ang) * 10, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
   }
 
   for (const burst of state.bursts) {
@@ -818,6 +903,13 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
     });
   };
 
+  const commitStakeInput = (raw: string) => {
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) return;
+    const clamped = Math.min(Math.max(0.5, Math.round(parsed * 100) / 100), Math.max(0.5, balance));
+    setStake(clamped);
+  };
+
   const inRun = hud.status === "safe" || hud.status === "crossing";
   const canAfford = balance >= stake;
   const showEnd = hud.status === "dead" || hud.status === "cashed";
@@ -830,15 +922,19 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
 
   return (
     <div className="single-screen">
-      <header className="match-topbar">
-        <button className="ghost-button" type="button" onClick={onExit}>
+      <header className="sp-topbar">
+        <button className="ghost-button sp-back" type="button" onClick={onExit}>
           <ArrowLeft size={16} /> Menu
         </button>
-        <div className="match-title">
+        <div className="sp-brand-lockup">
+          <span className="sp-brand-icon"><SnakeLogo size={20} /></span>
+          <span className="sp-brand-text">SlitherBet</span>
+        </div>
+        <div className="sp-mode-badge">
           <span className="eyebrow">Single player</span>
           <strong>Cave Run</strong>
         </div>
-        <div className="match-wallet">
+        <div className="match-wallet ui-glass">
           <span className="eyebrow">Balance</span>
           <strong>{formatMoney(balance)}</strong>
         </div>
@@ -961,7 +1057,18 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
             <span className="bar-label">Stake</span>
             <div className="bet-stepper">
               <button type="button" onClick={() => adjustStake(-1)} disabled={inRun} aria-label="Lower bet"><Minus size={16} /></button>
-              <strong>{formatMoney(stake)}</strong>
+              <input
+                className="stake-input"
+                type="number"
+                min={0.5}
+                max={balance}
+                step={0.5}
+                value={stake}
+                disabled={inRun}
+                onChange={(e) => commitStakeInput(e.target.value)}
+                onBlur={(e) => commitStakeInput(e.target.value)}
+                aria-label="Stake amount"
+              />
               <button type="button" onClick={() => adjustStake(1)} disabled={inRun || stake >= balance} aria-label="Raise bet"><Plus size={16} /></button>
             </div>
           </div>

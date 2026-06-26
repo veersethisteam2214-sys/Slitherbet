@@ -36,11 +36,10 @@ export function Loading({ onDone, duration = 3200 }: LoadingProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const trail: { x: number; y: number }[] = [];
+    const start = performance.now();
     let raf = 0;
     let W = 0;
     let H = 0;
-    const start = performance.now();
 
     const resize = () => {
       W = wrap.clientWidth;
@@ -54,8 +53,7 @@ export function Loading({ onDone, duration = 3200 }: LoadingProps) {
     };
 
     const render = (now: number) => {
-      const t = (now - start) / 1000;
-      drawWordmarkFrame(ctx, W, H, t, "arcade", trail);
+      drawWordmarkFrame(ctx, W, H, (now - start) / 1000, "arcade");
       raf = requestAnimationFrame(render);
     };
 
