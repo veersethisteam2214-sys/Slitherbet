@@ -67,7 +67,7 @@ function HeroPreview({
       <span className="cosmetic-hero-tag">Base serpent</span>
       <canvas ref={ref} className="cosmetic-hero-canvas" width={320} height={160} />
       <p className={`cosmetic-hero-caption ${isPreviewing ? "previewing" : ""}`}>
-        {isPreviewing ? "Preview · " : "Equipped · "}
+        {isPreviewing ? "Preview - " : "Equipped - "}
         {equippedSummary(preview)}
       </p>
     </div>
@@ -101,7 +101,7 @@ export function SnakeSkinShop({ balance, owned, equipped, onPurchase, onEquip, o
       <div className="skin-shop-head">
         <span className="eyebrow"><Sparkles size={12} /> Snake forge</span>
         <h2>Dress your serpent</h2>
-        <p className="skin-shop-sub">One base snake — branch out with scales, clothing, and hats that layer on top.</p>
+        <p className="skin-shop-sub">One base snake - branch out with scales, clothing, and hats that layer on top.</p>
       </div>
 
       <HeroPreview preview={previewEquipped} isPreviewing={isPreviewing} />
@@ -176,7 +176,7 @@ export function SnakeSkinShop({ balance, owned, equipped, onPurchase, onEquip, o
                   disabled={!canBuy}
                   onClick={() => onPurchase(item)}
                 >
-                  {item.price === 0 ? "Included" : canBuy ? `Buy · ${formatMoney(item.price)}` : <><Lock size={13} /> {formatMoney(item.price)}</>}
+                  {item.price === 0 ? "Included" : canBuy ? `Buy - ${formatMoney(item.price)}` : <><Lock size={13} /> {formatMoney(item.price)}</>}
                 </button>
               )}
             </li>

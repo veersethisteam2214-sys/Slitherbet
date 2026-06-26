@@ -19,6 +19,10 @@ type FeedBet = {
 const diffLabels = ["Easy", "Medium", "Hard", "Extreme"];
 const stakeChoices = [0.5, 1, 2, 5, 10, 25, 50, 100, 250];
 
+function cleanBetLabel(label: string) {
+  return label.replace(/^Cave Run\s*(?:-|\u00b7|\u00c2\u00b7)\s*/, "");
+}
+
 function makeBotBet(): FeedBet {
   const stake = stakeChoices[Math.floor(Math.random() * stakeChoices.length)];
   const win = Math.random() > 0.46;
@@ -57,7 +61,7 @@ export function LiveBoard({ bets }: { bets: BetRecord[] }) {
         id: `you-${b.id}`,
         name: "You",
         isYou: true,
-        label: b.label.replace("Cave Run · ", ""),
+        label: cleanBetLabel(b.label),
         stake: b.stake,
         multiplier: b.multiplier ?? 0,
         payout: b.payout,
@@ -127,7 +131,7 @@ export function LiveBoard({ bets }: { bets: BetRecord[] }) {
           <ul className="lb-feed">
             {myBest.map((b) => (
               <li key={b.id} className="you">
-                <span className="lb-name">{b.label.replace("Cave Run · ", "")}</span>
+                <span className="lb-name">{cleanBetLabel(b.label)}</span>
                 <span className="lb-mid">{(b.multiplier ?? 0).toFixed(2)}x</span>
                 <span className="lb-amt win">{formatMoney(b.payout)}</span>
               </li>

@@ -1138,7 +1138,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
     audio.play("cash");
     onRecordBet({
       mode: "single",
-      label: `Cave Run · ${DIFFS[s.difficulty].label}`,
+      label: `Cave Run - ${DIFFS[s.difficulty].label}`,
       stake: s.stake,
       multiplier: mult,
       payout: s.result,
@@ -1171,7 +1171,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
         audio.play("death");
         onRecordBet({
           mode: "single",
-          label: `Cave Run · ${DIFFS[s.difficulty].label}`,
+          label: `Cave Run - ${DIFFS[s.difficulty].label}`,
           stake: s.stake,
           multiplier: multAt(s.level, DIFFS[s.difficulty].survive),
           payout: 0,
@@ -1361,18 +1361,18 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
                   <div className="end-icon lose"><Skull size={30} /></div>
                   <h3>Snatched!</h3>
                   <p>An eagle dove out of the dark mid-crossing. You lost {formatMoney(stake)}.</p>
-                  <p className="end-sub">Reached level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
+                  <p className="end-sub">Reached level {hud.level} - {hud.multiplier.toFixed(2)}x</p>
                 </>
               ) : (
                 <>
                   <div className="end-icon win"><Play size={30} /></div>
                   <h3>Cashed out {formatMoney(hud.result)}</h3>
-                  <p className="end-sub">Banked at level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
+                  <p className="end-sub">Banked at level {hud.level} - {hud.multiplier.toFixed(2)}x</p>
                 </>
               )}
               <div className="end-actions">
                 <button className="primary-action wide" type="button" onClick={startRun} disabled={!canAfford}>
-                  <RefreshCw size={16} /> Try again · {formatMoney(stake)}
+                  <RefreshCw size={16} /> Try again - {formatMoney(stake)}
                 </button>
                 <button className="ghost-button" type="button" onClick={closeEnd}>New bet</button>
               </div>
@@ -1393,7 +1393,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
                 <li>Bank it whenever you're perched. If a predator catches you mid-leap, the run is over.</li>
               </ol>
               <p className="info-note">
-                Lower risk reaches the deep ledges far more often. Higher risk pays more per ledge but rarely lets you run deep. Play money only — no real currency.
+                Lower risk reaches the deep ledges far more often. Higher risk pays more per ledge but rarely lets you run deep. Play money only - no real currency.
               </p>
             </div>
           )}
@@ -1452,7 +1452,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
               onClick={goAction}
               disabled={hud.status === "crossing" || (hud.status === "ready" && !canAfford)}
             >
-              {hud.status === "ready" ? "Go" : hud.status === "crossing" ? "…" : "Go →"}
+              {hud.status === "crossing" ? "..." : "Go"}
             </button>
           </div>
         </div>

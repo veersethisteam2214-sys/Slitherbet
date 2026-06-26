@@ -5,7 +5,7 @@ export type CosmeticCategory = "scales" | "clothing" | "hat";
 export type ClothingStyle = "collar" | "vest" | "scarf" | "bandana" | "chain";
 export type HatStyle = "cap" | "crown" | "topper" | "cowboy" | "beanie" | "horns";
 
-/** Fixed multiplayer serpent — cosmetics layer on top of this. */
+/** Fixed multiplayer serpent - cosmetics layer on top of this. */
 export const BASE_SNAKE = {
   color: "#1b4332",
   accent: "#40916c",
@@ -178,5 +178,5 @@ export function equippedSummary(eq: EquippedCosmetics): string {
     const h = cosmeticById(eq.hat);
     if (h) parts.push(h.name);
   }
-  return parts.join(" · ");
+  return parts.join(" - ");
 }

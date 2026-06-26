@@ -120,7 +120,7 @@ export function Loading({ onDone, duration = 3200 }: LoadingProps) {
       <footer className="loading-footer">
         <span className="loading-mark">SlitherBet arcade client</span>
         <span className="loading-credit">
-          demo stakes · <strong>play money</strong>
+          demo stakes - <strong>play money</strong>
         </span>
       </footer>
     </div>

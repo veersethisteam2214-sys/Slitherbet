@@ -82,7 +82,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
       <div className="menu-body">
         <section className="arcade-showcase" aria-label="SlitherBet cave preview">
           <div className="showcase-copy">
-            <span className="eyebrow"><Sparkles size={13} /> 21st-style arcade shell</span>
+            <span className="eyebrow"><Sparkles size={13} /> Featured cave table</span>
             <h2>Crystal cave runs, live tables, clean game UI.</h2>
             <p>Eat the checkpoint mouse, dodge the patrol, and decide when the next lane is worth the risk.</p>
           </div>

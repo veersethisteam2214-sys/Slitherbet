@@ -15,7 +15,7 @@ function shade(hex: string, amt: number) {
   return `rgb(${r | 0}, ${g | 0}, ${b | 0})`;
 }
 
-/** Segmented hatchling snake — same visual language as single-player Cave Run. */
+/** Segmented hatchling snake - same visual language as single-player Cave Run. */
 export function drawArcadeSnake(
   ctx: CanvasRenderingContext2D,
   headX: number,

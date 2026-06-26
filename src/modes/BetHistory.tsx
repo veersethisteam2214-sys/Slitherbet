@@ -64,8 +64,8 @@ export function BetHistory({ bets, onClose }: BetHistoryProps) {
                   <div className="bet-main">
                     <strong>{bet.label}</strong>
                     <small>
-                      {bet.mode === "single" ? "Single player" : "Tournament"} · {timeAgo(bet.time)}
-                      {bet.multiplier ? ` · ${bet.multiplier.toFixed(2)}x` : ""}
+                      {bet.mode === "single" ? "Single player" : "Tournament"} - {timeAgo(bet.time)}
+                      {bet.multiplier ? ` - ${bet.multiplier.toFixed(2)}x` : ""}
                     </small>
                   </div>
                   <div className="bet-money">

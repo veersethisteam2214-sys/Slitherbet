@@ -60,7 +60,7 @@ export function MultiplayerLobby({
         </button>
         <div className="lobby-hero-title">
           <span className="eyebrow">Tournament lobby</span>
-          <strong>Pick your table · {username}</strong>
+          <strong>Pick your table - {username}</strong>
         </div>
         <div className="lobby-topbar-actions">
           <button className="forge-toggle" type="button" onClick={() => setShowForge(true)}>
@@ -98,7 +98,7 @@ export function MultiplayerLobby({
                 >
                   <span className="lobby-name">
                     <strong>{tier.name}</strong>
-                    <small><Flame size={12} /> {tier.intensity} · {tier.format}</small>
+                    <small><Flame size={12} /> {tier.intensity} - {tier.format}</small>
                   </span>
                   <span className="lobby-buyin">{formatMoney(tier.buyIn)}</span>
                   <span className="lobby-players">
@@ -120,7 +120,7 @@ export function MultiplayerLobby({
           <LiquidGlassPanel className="lobby-detail-inner" elevated>
             <span className="eyebrow">Selected table</span>
             <h2>{selected.name}</h2>
-            <p className="detail-sub"><Flame size={13} /> {selected.intensity} · {selected.format} format</p>
+            <p className="detail-sub"><Flame size={13} /> {selected.intensity} - {selected.format} format</p>
 
             <dl className="detail-grid">
               <div><dt>Buy-in</dt><dd>{formatMoney(selected.buyIn)}</dd></div>
@@ -151,9 +151,9 @@ export function MultiplayerLobby({
               onClick={() => onJoin(selected)}
               disabled={!canAfford}
             >
-              <Play size={18} /> {canAfford ? `Register · ${formatMoney(selected.buyIn)}` : "Insufficient balance"}
+              <Play size={18} /> {canAfford ? `Register - ${formatMoney(selected.buyIn)}` : "Insufficient balance"}
             </button>
-            <p className="muted small center">Demo stakes only · fake money</p>
+            <p className="muted small center">Demo stakes only - fake money</p>
           </LiquidGlassPanel>
         </aside>
       </div>

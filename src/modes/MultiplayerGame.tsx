@@ -735,7 +735,7 @@ export function MultiplayerGame({
           <ArrowLeft size={16} /> Lobby
         </button>
         <div className="match-title">
-          <span className="eyebrow">{tier.name} · {username}</span>
+          <span className="eyebrow">{tier.name} - {username}</span>
           <strong>{snapshot.eventText}</strong>
         </div>
         <div className="match-wallet">
@@ -826,7 +826,7 @@ export function MultiplayerGame({
 
           <section className="panel-block">
             <div className="panel-header compact">
-              <span className="eyebrow">Payout ladder · Final six</span>
+              <span className="eyebrow">Payout ladder - Final six</span>
               <h2>{formatMoney(prizePool)} pool</h2>
             </div>
             <div className="payout-list">
@@ -839,7 +839,7 @@ export function MultiplayerGame({
               ))}
             </div>
             <p className="rake-note">
-              <Trophy size={13} /> House rake {Math.round(tier.rake * 100)}% · {formatMoney(houseTake)}
+              <Trophy size={13} /> House rake {Math.round(tier.rake * 100)}% - {formatMoney(houseTake)}
             </p>
           </section>
         </aside>
