@@ -1,4 +1,4 @@
-import { ArrowLeft, Crown, RotateCcw, Trophy, Zap } from "lucide-react";
+import { ArrowLeft, Crown, RotateCcw, Skull, Users, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audio } from "../audio";
 import { drawRealisticSnake } from "../components/RealisticSnakeRenderer";
@@ -133,7 +133,7 @@ function createGame(tier: Tier, username: string, equipped: EquippedCosmetics): 
     safeRadius: arenaRadius,
     finalTableAnnounced: false,
     finishedAt: null,
-    eventText: "Seats locking. Get ready to enter the arena.",
+    eventText: "Waiting for snakes…",
     lastPayouts: [],
     nextDotId: baseDotCount + 1,
     settled: false,
@@ -204,10 +204,10 @@ function eliminateSnake(game: GameState, snake: Snake, killer: Snake | null) {
       kind: i % 8 === 0 ? "gold" : "cash",
     });
   }
-  const name = snake.isHuman ? `${snake.name} was eliminated` : `${snake.name} busted`;
+  const remain = game.snakes.filter((s) => s.alive).length;
   game.eventText = killer
-    ? `${name} by ${killer.name}. ${game.snakes.filter((s) => s.alive).length} remain.`
-    : `${name} outside the ring.`;
+    ? `${killer.name} knocked out ${snake.name} · ${remain} left`
+    : `${snake.name} hit the wall · ${remain} left`;
 
   if (game.snakes.filter((s) => s.alive).length === 1) completeGame(game);
 }
@@ -232,7 +232,7 @@ function updateGame(game: GameState, tier: Tier, dt: number, pointer: Segment | 
     game.countdown -= dt;
     if (game.countdown <= 0) {
       game.phase = "live";
-      game.eventText = "Match live. Eat value dots, trap opponents, survive the bubble.";
+      game.eventText = "Match live";
     }
     return;
   }
@@ -245,7 +245,7 @@ function updateGame(game: GameState, tier: Tier, dt: number, pointer: Segment | 
 
   if (aliveCount <= 6 && !game.finalTableAnnounced) {
     game.finalTableAnnounced = true;
-    game.eventText = "In the money: six snakes remain. Payout ladder is active.";
+    game.eventText = "Final 6 — in the money";
   }
 
   const shrinkStart = tier.seats > 70 ? 55 : 38;
@@ -495,7 +495,7 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fillRect(0, 0, rect.width, rect.height);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "700 92px 'Space Grotesk', Inter, system-ui";
+    ctx.font = "800 92px 'Outfit', system-ui";
     ctx.textAlign = "center";
     ctx.fillText(Math.max(1, Math.ceil(snapshot.countdown)).toString(), cx, cy + 30);
   }
@@ -504,9 +504,9 @@ function drawArena(canvas: HTMLCanvasElement, game: GameState, snapshot: Snapsho
     ctx.fillStyle = "rgba(2,8,10,0.62)";
     ctx.fillRect(0, 0, rect.width, rect.height);
     ctx.fillStyle = "#ffd447";
-    ctx.font = "800 44px 'Space Grotesk', Inter, system-ui";
+    ctx.font = "800 44px 'Outfit', system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("Tournament Complete", cx, cy - 18);
+    ctx.fillText("Match Over", cx, cy - 18);
     ctx.fillStyle = "#ffffff";
     ctx.font = "600 18px Inter, system-ui";
     ctx.fillText(game.eventText, cx, cy + 22);
@@ -538,7 +538,7 @@ export function MultiplayerGame({
   const initialGame = useMemo(() => {
     const game = createGame(tier, username, equippedCosmetics);
     game.phase = "countdown";
-    game.eventText = "Seats locked. The cavern opens now.";
+    game.eventText = "Get ready…";
     return game;
   }, [tier, username, equippedCosmetics]);
 
@@ -555,12 +555,11 @@ export function MultiplayerGame({
   const [boostUi, setBoostUi] = useState(false);
 
   const prizePool = potFor(tier);
-  const houseTake = tier.buyIn * tier.seats * tier.rake;
 
   const resetGame = useCallback(() => {
     const game = createGame(tier, username, equippedCosmetics);
     game.phase = "countdown";
-    game.eventText = "Seats locked. The cavern opens now.";
+    game.eventText = "Get ready…";
     gameRef.current = game;
     setSnapshot(buildSnapshot(game));
   }, [tier, username, equippedCosmetics]);
@@ -649,14 +648,17 @@ export function MultiplayerGame({
     <div className="match-screen">
       <header className="match-topbar">
         <button className="ghost-button" type="button" onClick={onExit}>
-          <ArrowLeft size={16} /> Lobby
+          <ArrowLeft size={16} /> Leave
         </button>
-        <div className="match-title">
-          <span className="eyebrow">{tier.name} · {username}</span>
-          <strong>{snapshot.eventText}</strong>
+        <div className="match-status">
+          <span className={`match-live ${snapshot.phase === "live" ? "on" : ""}`}>
+            <span className="live-dot" /> {snapshot.phase === "live" ? "LIVE" : snapshot.phase === "complete" ? "FINAL" : "STARTING"}
+          </span>
+          <strong>{tier.name}</strong>
+          <span className="match-alive"><Users size={14} /> {snapshot.alive}/{snapshot.field}</span>
         </div>
-        <div className="match-wallet">
-          <span className="eyebrow">Balance</span>
+        <div className="wallet-readout">
+          <span>Balance</span>
           <strong>{formatMoney(balance)}</strong>
         </div>
       </header>
@@ -693,13 +695,16 @@ export function MultiplayerGame({
               onPointerMove={handlePointer}
               onPointerDown={handlePointer}
             />
+            {snapshot.phase === "live" && (
+              <div className="match-toast" key={snapshot.eventText}>{snapshot.eventText}</div>
+            )}
             <div className="hud-card upper-left">
-              <span>Your claim</span>
+              <span>Cashed</span>
               <strong>{formatMoney(snapshot.humanBanked)}</strong>
-              <small>{snapshot.humanAlive ? `Rank #${snapshot.humanRank}` : "Eliminated"}</small>
+              <small>{snapshot.humanAlive ? `Rank #${snapshot.humanRank} · ${snapshot.humanKills} KO` : "Eliminated"}</small>
             </div>
             <div className="hud-card upper-right">
-              <span>Cave ring</span>
+              <span>Safe zone</span>
               <strong>{Math.round((snapshot.safeRadius / arenaRadius) * 100)}%</strong>
               <small>{snapshot.alive <= 6 ? "In the money" : `${Math.max(0, snapshot.alive - 6)} from cash`}</small>
             </div>
@@ -710,7 +715,7 @@ export function MultiplayerGame({
                 {playerPayout ? (
                   <span className="result-amount">{formatMoney(playerPayout.amount)}</span>
                 ) : (
-                  <span>Better luck next coil.</span>
+                  <span>Out of the money</span>
                 )}
                 <div className="result-actions">
                   <button className="primary-action" type="button" onClick={resetGame}>Play again</button>
@@ -723,17 +728,21 @@ export function MultiplayerGame({
 
         <aside className="side-panel">
           <section className="panel-block">
-            <div className="panel-header compact">
-              <span className="eyebrow">Leaderboard</span>
-              <h2>Top stacks</h2>
+            <div className="feed-head">
+              <h2>Live players</h2>
+              <span>{snapshot.alive} alive</span>
             </div>
             <ol className="leaderboard-list">
               {snapshot.leaderboard.map((entry, index) => (
-                <li key={entry.id} className={entry.isHuman ? "you" : ""}>
+                <li key={entry.id} className={`${entry.isHuman ? "you" : ""} ${entry.alive ? "" : "dead"}`}>
                   <span className="place">{index + 1}</span>
                   <span className="player">
                     <strong>{entry.name}</strong>
-                    <small>{entry.alive ? `${entry.kills} KO` : `Out #${entry.rank}`}</small>
+                    <small>
+                      {entry.alive
+                        ? `${entry.kills} KO`
+                        : <><Skull size={11} /> Out #{entry.rank}</>}
+                    </small>
                   </span>
                   <span className="stack">{formatMoney(entry.banked)}</span>
                 </li>
@@ -742,22 +751,18 @@ export function MultiplayerGame({
           </section>
 
           <section className="panel-block">
-            <div className="panel-header compact">
-              <span className="eyebrow">Payout ladder · Final six</span>
-              <h2>{formatMoney(prizePool)} pool</h2>
+            <div className="feed-head">
+              <h2>Payouts</h2>
+              <span>{formatMoney(prizePool)} pool</span>
             </div>
             <div className="payout-list">
               {payoutPercents.map((percent, index) => (
                 <div className={playerPayout?.place === index + 1 ? "won" : ""} key={percent}>
                   <span>{index + 1}</span>
                   <strong>{formatMoney(prizePool * percent)}</strong>
-                  <small>{Math.round(percent * 1000) / 10}%</small>
                 </div>
               ))}
             </div>
-            <p className="rake-note">
-              <Trophy size={13} /> House rake {Math.round(tier.rake * 100)}% · {formatMoney(houseTake)}
-            </p>
           </section>
         </aside>
       </div>
