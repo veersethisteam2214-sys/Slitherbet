@@ -1,4 +1,4 @@
-type SfxName = "step" | "safe" | "level" | "cash" | "death" | "click" | "start";
+type SfxName = "step" | "safe" | "level" | "cash" | "death" | "click" | "start" | "hiss";
 
 const SCALE = [0, 3, 5, 7, 10, 12, 15]; // minor pentatonic-ish, semitone offsets
 const BASS = [-24, -19, -17, -12];
@@ -145,7 +145,49 @@ class AudioEngine {
       case "click":
         this.tone(420, 0.05, "square", 0.12, bus);
         break;
+      case "hiss":
+        this.hiss();
+        break;
     }
+  }
+
+  // Sustained serpent hiss: white noise shaped by a sweeping band-pass with a
+  // breathy swell envelope. Used by the SLITHER startup animation.
+  private hiss() {
+    if (!this.ctx || !this.sfxBus) return;
+    const t = this.ctx.currentTime;
+    const dur = 0.95;
+    const frames = Math.floor(this.ctx.sampleRate * dur);
+    const buffer = this.ctx.createBuffer(1, frames, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 1400;
+
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(2200, t);
+    bp.frequency.exponentialRampToValueAtTime(5200, t + 0.28);
+    bp.frequency.exponentialRampToValueAtTime(2800, t + dur);
+
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.2);
+    g.gain.setValueAtTime(0.5, t + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    src.connect(hp);
+    hp.connect(bp);
+    bp.connect(g);
+    g.connect(this.sfxBus);
+    src.start(t);
+    src.stop(t + dur + 0.02);
   }
 
   startMusic() {

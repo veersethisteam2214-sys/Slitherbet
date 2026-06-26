@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "./audio";
 import { FloatingActionMenu } from "./components/FloatingActionMenu";
 import { BetHistory } from "./modes/BetHistory";
-import { Loading } from "./modes/Loading";
+import { SlitherIntro } from "./modes/SlitherIntro";
 import { Menu } from "./modes/Menu";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
@@ -145,11 +145,7 @@ export function App() {
   }, []);
 
   if (booting) {
-    return (
-      <main className="app-shell">
-        <Loading onDone={() => setBooting(false)} />
-      </main>
-    );
+    return <SlitherIntro onDone={() => setBooting(false)} />;
   }
 
   const fabOptions = [
