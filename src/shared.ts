@@ -81,7 +81,7 @@ export const colors: Array<[string, string]> = [
 
 export const botNames = [
   "Bankroll", "ViperDesk", "Rakeback", "NeonTilt", "FinalSix", "PotPilot", "AceCoil", "BubbleBoy",
-  "ChipTrail", "MoonSnake", "RiskUnit", "OmegaSeat", "Railbird", "StackTrap", "GoldFang", "FastFold",
+  "ChipTrail", "MoonSnake", "RiskUnit", "OmegaSeat", "RailKing", "StackTrap", "GoldFang", "FastFold",
   "Orbit", "BlueLine", "DustVault", "EdgeLord", "SeatOpen", "NitroRay", "BadBeat", "CopperRun",
 ];
 

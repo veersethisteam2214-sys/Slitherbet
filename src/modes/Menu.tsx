@@ -1,11 +1,8 @@
-import { Coins, Layers, Mountain, Sparkles, Trophy, User, Users } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
-import { SnakeWordmark } from "../components/SnakeWordmark";
+import { ChevronRight, Coins, Gamepad2, MousePointer2, Sparkles, Trophy, User, Users } from "lucide-react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "../components/ui/Button";
 import { GlassPanel } from "../components/ui/GlassPanel";
 import { Input } from "../components/ui/Input";
-import { ModeCard } from "../components/ui/ModeCard";
-import { formatMoney } from "../shared";
 import { isValidUsername, saveUsername } from "../snakeSkins";
 
 type MenuProps = {
@@ -28,6 +25,34 @@ function BrandMark() {
       />
       <circle cx="8" cy="22" r="2.8" fill="currentColor" />
     </svg>
+  );
+}
+
+function coinBalance(value: number) {
+  return `${Math.floor(value).toLocaleString("en-US")} coins`;
+}
+
+type ArcadeModeButtonProps = {
+  title: string;
+  subtitle: string;
+  meta: string;
+  Icon: ReactNode;
+  accent?: "emerald" | "violet";
+  disabled?: boolean;
+  onClick: () => void;
+};
+
+function ArcadeModeButton({ title, subtitle, meta, Icon, accent = "emerald", disabled, onClick }: ArcadeModeButtonProps) {
+  return (
+    <button className={`arcade-mode-button ${accent}`} type="button" disabled={disabled} onClick={onClick}>
+      <span className="mode-icon">{Icon}</span>
+      <span className="mode-main">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </span>
+      <span className="mode-meta">{meta}</span>
+      <ChevronRight className="mode-arrow" size={20} />
+    </button>
   );
 }
 
@@ -58,62 +83,98 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
   };
 
   return (
-    <div className="menu-screen">
+    <div className={`menu-screen menu-${theme}`}>
       <div className="menu-backdrop" aria-hidden />
+      <div className="menu-world" aria-hidden>
+        <span className="world-glow g1" />
+        <span className="world-glow g2" />
+        <span className="world-path" />
+        <span className="world-checkpoint p1" />
+        <span className="world-checkpoint p2" />
+        <span className="world-checkpoint p3" />
+        <span className="world-coin c1" />
+        <span className="world-coin c2" />
+        <span className="world-coin c3" />
+        <span className="world-mouse m1" />
+        <span className="world-mouse m2" />
+        <span className="world-snake-trail" />
+      </div>
 
       <header className="menu-topbar">
-        <div className="brand-lockup">
+        <div className="brand-lockup menu-brand-compact">
           <div className="brand-mark"><BrandMark /></div>
           <div className="brand-copy">
-            <span className="brand-name">SlitherBet</span>
-            <span className="brand-sub">Crystal cave arcade</span>
+            <span className="brand-name">Slither Bet</span>
+            <span className="brand-sub">Demo coin arcade</span>
           </div>
         </div>
-        <GlassPanel className="wallet-chip">
-          <span className="eyebrow">Balance</span>
-          <strong>{formatMoney(balance)}</strong>
+        <GlassPanel className="wallet-chip menu-balance-hud">
+          <span className="coin-stack" aria-hidden><Coins size={18} /></span>
+          <span className="eyebrow">Total Balance</span>
+          <strong>{coinBalance(balance)}</strong>
         </GlassPanel>
       </header>
 
-      <div className="menu-wordmark-row">
-        <SnakeWordmark theme={theme} />
-      </div>
-
       <div className="menu-body">
-        <section className="arcade-showcase" aria-label="SlitherBet cave preview">
-          <div className="showcase-copy">
-            <span className="eyebrow"><Sparkles size={13} /> Featured cave table</span>
-            <h2>Crystal cave runs, live tables, clean game UI.</h2>
-            <p>Eat the checkpoint mouse, dodge the patrol, and decide when the next lane is worth the risk.</p>
+        <section className="premium-home">
+          <div className="game-logo-lockup" aria-label="Slither Bet">
+            <span className="logo-spark left" />
+            <h1>
+              <span>Slither</span>
+              <b>Bet</b>
+            </h1>
+            <span className="logo-snake-mark" aria-hidden>
+              {Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
+              <em />
+            </span>
+            <p>Snake runs, checkpoint streaks, and demo-coin rewards.</p>
+            <span className="logo-spark right" />
           </div>
 
-          <div className="showcase-screen" aria-hidden>
-            <div className="showcase-cave">
-              <span className="show-crystal s1" />
-              <span className="show-crystal s2" />
-              <span className="show-crystal s3" />
-              <span className="show-roadline r1" />
-              <span className="show-roadline r2" />
-              <span className="show-roadline r3" />
-              <span className="show-check c1"><b>1.12x</b><i>$1.12</i></span>
-              <span className="show-check c2"><b>1.31x</b><i>$1.31</i></span>
-              <span className="show-mouse m1" />
-              <span className="show-fox" />
-              <span className="show-snake">
-                {Array.from({ length: 16 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
+          <div className="home-stage">
+            <div className="stage-art" aria-hidden>
+              <span className="stage-path" />
+              <span className="stage-grass left" />
+              <span className="stage-grass right" />
+              <span className="stage-check s1"><b>1.10x</b><i>110</i></span>
+              <span className="stage-check s2"><b>1.25x</b><i>125</i></span>
+              <span className="stage-check s3"><b>1.55x</b><i>155</i></span>
+              <span className="stage-mouse a" />
+              <span className="stage-mouse b" />
+              <span className="stage-coin k1" />
+              <span className="stage-coin k2" />
+              <span className="stage-coin k3" />
+              <span className="stage-snake">
+                {Array.from({ length: 18 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
                 <b />
               </span>
             </div>
-            <div className="showcase-dock">
-              <span>Stake $1.00</span>
-              <span>Easy</span>
-              <strong>Go</strong>
+
+            <div className={`home-action-panel ${valid ? "" : "locked"}`}>
+              <ArcadeModeButton
+                title="Single Player"
+                subtitle="Checkpoint run against the cave path"
+                meta="Solo"
+                Icon={<Gamepad2 size={24} />}
+                disabled={!valid}
+                onClick={enterSingle}
+              />
+              <ArcadeModeButton
+                title="Multiplayer"
+                subtitle="Live arena with rival snakes"
+                meta="Versus"
+                Icon={<Users size={24} />}
+                accent="violet"
+                disabled={!valid}
+                onClick={enterMulti}
+              />
             </div>
           </div>
 
-          <div className="showcase-stats">
-            <span><Trophy size={14} /> top six paid</span>
-            <span><Mountain size={14} /> cave patrols</span>
+          <div className="home-feature-row">
+            <span><MousePointer2 size={14} /> mice checkpoints</span>
+            <span><Trophy size={14} /> streak ladder</span>
+            <span><Sparkles size={14} /> demo coins only</span>
           </div>
         </section>
 
@@ -145,52 +206,6 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
             </Button>
           </div>
         </GlassPanel>
-
-        <div className={`mode-grid ${valid ? "" : "locked"}`}>
-          <ModeCard
-            kicker={
-              <>
-                <Mountain size={13} /> Solo - cave run
-              </>
-            }
-            stat="~12s a run"
-            title="Cave Run"
-            description="Ride the ledges, collect multipliers, and cash out before the cave patrol catches you."
-            points={[
-              <>
-                <Coins size={14} /> Multiplier climbs every ledge
-              </>,
-              <>
-                <Layers size={14} /> Cash out the second you land
-              </>,
-            ]}
-            cta="Enter the cave"
-            disabled={!valid}
-            onClick={enterSingle}
-          />
-          <ModeCard
-            accent="warm"
-            kicker={
-              <>
-                <Users size={13} /> Live - last snake standing
-              </>
-            }
-            stat="Up to 100 seats"
-            title="Tournaments"
-            description="Enter a buy-in table, grow your snake, and fight through the final-six money bubble."
-            points={[
-              <>
-                <Coins size={14} /> Top-six payout ladder
-              </>,
-              <>
-                <Users size={14} /> Snake vs snake - no respawns
-              </>,
-            ]}
-            cta="Browse tables"
-            disabled={!valid}
-            onClick={enterMulti}
-          />
-        </div>
       </div>
     </div>
   );
