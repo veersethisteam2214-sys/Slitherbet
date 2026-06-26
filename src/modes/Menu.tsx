@@ -80,30 +80,40 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
       </div>
 
       <div className="menu-body">
-        <section className="menu-cave-window" aria-label="SlitherBet cave preview">
-          <div className="menu-cave-bg" aria-hidden>
-            <span className="cave-glow glow-a" />
-            <span className="cave-glow glow-b" />
-            <span className="cave-crystal crystal-a" />
-            <span className="cave-crystal crystal-b" />
-            <span className="cave-crystal crystal-c" />
-            <span className="cave-platform cp-a" />
-            <span className="cave-platform cp-b" />
-            <span className="cave-platform cp-c" />
-            <span className="preview-orb orb-1">1.08x</span>
-            <span className="preview-orb orb-2">1.33x</span>
-            <span className="preview-snake">
-              {Array.from({ length: 15 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
-              <b />
-            </span>
+        <section className="arcade-showcase" aria-label="SlitherBet cave preview">
+          <div className="showcase-copy">
+            <span className="eyebrow"><Sparkles size={13} /> 21st-style arcade shell</span>
+            <h2>Crystal cave runs, live tables, clean game UI.</h2>
+            <p>Eat the checkpoint mouse, dodge the patrol, and decide when the next lane is worth the risk.</p>
           </div>
-          <div className="menu-cave-copy">
-            <span className="eyebrow"><Sparkles size={13} /> New cave build</span>
-            <h2>Arcade snake with real table energy.</h2>
+
+          <div className="showcase-screen" aria-hidden>
+            <div className="showcase-cave">
+              <span className="show-crystal s1" />
+              <span className="show-crystal s2" />
+              <span className="show-crystal s3" />
+              <span className="show-roadline r1" />
+              <span className="show-roadline r2" />
+              <span className="show-roadline r3" />
+              <span className="show-check c1"><b>1.12x</b><i>$1.12</i></span>
+              <span className="show-check c2"><b>1.31x</b><i>$1.31</i></span>
+              <span className="show-mouse m1" />
+              <span className="show-fox" />
+              <span className="show-snake">
+                {Array.from({ length: 16 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
+                <b />
+              </span>
+            </div>
+            <div className="showcase-dock">
+              <span>Stake $1.00</span>
+              <span>Easy</span>
+              <strong>Go</strong>
+            </div>
           </div>
-          <div className="menu-cave-stats">
-            <span><Trophy size={14} /> Top six paid</span>
-            <span><Mountain size={14} /> Crystal cave</span>
+
+          <div className="showcase-stats">
+            <span><Trophy size={14} /> top six paid</span>
+            <span><Mountain size={14} /> cave patrols</span>
           </div>
         </section>
 
@@ -122,7 +132,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
                 maxLength={16}
                 value={draft}
                 hint={
-                  valid ? `Playing as ${draft.trim()}` : "3-16 chars · letters, numbers, underscore"
+                  valid ? `Playing as ${draft.trim()}` : "3-16 chars - letters, numbers, underscore"
                 }
                 hintOk={valid}
                 onChange={(e) => setDraft(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
@@ -140,7 +150,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
           <ModeCard
             kicker={
               <>
-                <Mountain size={13} /> Solo · cave run
+                <Mountain size={13} /> Solo - cave run
               </>
             }
             stat="~12s a run"
@@ -162,7 +172,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
             accent="warm"
             kicker={
               <>
-                <Users size={13} /> Live · last snake standing
+                <Users size={13} /> Live - last snake standing
               </>
             }
             stat="Up to 100 seats"
@@ -173,7 +183,7 @@ export function Menu({ balance, theme, username, onUsernameChange, onSingle, onM
                 <Coins size={14} /> Top-six payout ladder
               </>,
               <>
-                <Users size={14} /> Snake vs snake · no respawns
+                <Users size={14} /> Snake vs snake - no respawns
               </>,
             ]}
             cta="Browse tables"

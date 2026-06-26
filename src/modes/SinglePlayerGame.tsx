@@ -8,6 +8,7 @@ import { LiveBoard } from "./LiveBoard";
 type Status = "ready" | "safe" | "crossing" | "dead" | "cashed";
 type Difficulty = "easy" | "medium" | "hard" | "extreme";
 type Theme = "arcade" | "neon";
+type EnemyKind = "fox" | "eagle" | "owl" | "bat" | "spider";
 
 type DiffConfig = { label: string; survive: number; lanes: number; autoTarget: number };
 
@@ -219,7 +220,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-// Cave raptor — local space: beak points DOWN (+y). strike 0–1 extends talons on impact.
+// Cave bird - local space: beak points DOWN (+y). strike 0-1 extends talons on impact.
 function drawBird(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -316,6 +317,267 @@ function drawBird(
   }
 
   ctx.restore();
+}
+
+function enemyForLevel(level: number): EnemyKind {
+  const cycle: EnemyKind[] = ["fox", "bat", "owl", "eagle", "spider", "eagle"];
+  return cycle[Math.max(0, level - 1) % cycle.length];
+}
+
+function drawMouse(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, frame: number) {
+  ctx.save();
+  ctx.translate(x, y + Math.sin(frame * 5) * 1.5);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = "#efc0a9";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-16, 8);
+  ctx.bezierCurveTo(-34, 8, -35, 22, -20, 23);
+  ctx.stroke();
+
+  const body = ctx.createRadialGradient(-3, -8, 2, 0, 0, 20);
+  body.addColorStop(0, "#f4efe8");
+  body.addColorStop(1, "#9aa5ad");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 21, 14, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(38,44,52,0.45)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#d4d9df";
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(10 + side * 6, -10, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f4b6c2";
+    ctx.beginPath();
+    ctx.arc(10 + side * 6, -10, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#d4d9df";
+  }
+
+  ctx.fillStyle = "#111827";
+  ctx.beginPath();
+  ctx.arc(15, -1, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f87171";
+  ctx.beginPath();
+  ctx.arc(22, 4, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPredator(
+  ctx: CanvasRenderingContext2D,
+  kind: EnemyKind,
+  x: number,
+  y: number,
+  scale: number,
+  frame: number,
+  defeated = false,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = defeated ? 0.82 : 1;
+  if (!defeated) {
+    ctx.shadowColor = kind === "eagle" || kind === "owl" ? "rgba(255,214,107,0.42)" : "rgba(255,100,100,0.34)";
+    ctx.shadowBlur = 14;
+  }
+
+  if (kind === "fox") {
+    ctx.fillStyle = defeated ? "#b56b45" : "#f97316";
+    ctx.beginPath();
+    ctx.moveTo(-24, 0);
+    ctx.quadraticCurveTo(-7, -20, 18, -4);
+    ctx.quadraticCurveTo(3, 20, -22, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffedd5";
+    ctx.beginPath();
+    ctx.ellipse(2, 5, 13, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f97316";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 9, -12);
+      ctx.lineTo(side * 19, -30);
+      ctx.lineTo(side * 25, -7);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = "#111827";
+    if (defeated) {
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 3;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 7 - 4, -1);
+        ctx.lineTo(side * 7 + 4, 7);
+        ctx.moveTo(side * 7 + 4, -1);
+        ctx.lineTo(side * 7 - 4, 7);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      ctx.arc(-7, 2, 2.5, 0, Math.PI * 2);
+      ctx.arc(8, 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 10, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === "bat") {
+    ctx.fillStyle = defeated ? "#50445e" : "#4c1d95";
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.scale(side, 1);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(20, -14 + Math.sin(frame * 9) * 4);
+      ctx.lineTo(42, -2);
+      ctx.lineTo(22, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = defeated ? "#6b5f78" : "#7c3aed";
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-4, -2, 2.3, 0, Math.PI * 2);
+    ctx.arc(4, -2, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === "spider") {
+    ctx.strokeStyle = defeated ? "#7a6675" : "#111827";
+    ctx.lineWidth = 3;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 4; i += 1) {
+        const yy = -8 + i * 5;
+        ctx.beginPath();
+        ctx.moveTo(side * 7, yy);
+        ctx.lineTo(side * (22 + i * 2), yy + Math.sin(frame * 4 + i) * 4);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = defeated ? "#6b5562" : "#111827";
+    ctx.beginPath();
+    ctx.ellipse(0, 1, 15, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ff4d6d";
+    ctx.beginPath();
+    ctx.arc(-5, -4, 2.2, 0, Math.PI * 2);
+    ctx.arc(5, -4, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const eagle = kind === "eagle";
+    const wing = Math.sin(frame * (eagle ? 7 : 5)) * 5;
+    ctx.fillStyle = defeated ? "#8f7b62" : eagle ? "#8b4513" : "#7c4a21";
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.scale(side, 1);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(24, -25 + wing, 52, -9);
+      ctx.quadraticCurveTo(28, 2, 8, 13);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = defeated ? "#a08d75" : eagle ? "#5b341a" : "#6b3f1d";
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 16, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = eagle ? "#fef3c7" : "#d9a25f";
+    ctx.beginPath();
+    ctx.arc(0, -13, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f59e0b";
+    ctx.beginPath();
+    ctx.moveTo(8, -11);
+    ctx.lineTo(22, -7);
+    ctx.lineTo(8, -3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#111827";
+    if (defeated) {
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-5, -16);
+      ctx.lineTo(3, -8);
+      ctx.moveTo(3, -16);
+      ctx.lineTo(-5, -8);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(3, -12, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  if (defeated) {
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "900 15px 'Space Grotesk', Inter, system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("KO", 0, 34);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawCheckpoint(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  laneY: number,
+  level: number,
+  state: SPState,
+  diff: DiffConfig,
+  frame: number,
+  neon: boolean,
+) {
+  const passed = level <= state.level;
+  const isNext = level === (state.status === "crossing" ? state.fromLevel + 1 : state.level + 1);
+  const mult = multAt(level, diff.survive);
+  const pulse = isNext ? 1 + Math.sin(frame * 5) * 0.055 : 1;
+
+  ctx.save();
+  ctx.translate(cx, laneY);
+  ctx.shadowColor = passed ? "#75ff9d" : isNext ? "#ffd66b" : "rgba(255,255,255,0.36)";
+  ctx.shadowBlur = passed || isNext ? 18 : 5;
+  ctx.strokeStyle = passed ? "#75ff9d" : isNext ? "#ffd66b" : "rgba(220,230,236,0.55)";
+  ctx.lineWidth = isNext ? 5 : 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, COIN_R * pulse, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = passed ? "rgba(117,255,157,0.14)" : isNext ? "rgba(255,214,107,0.15)" : "rgba(255,255,255,0.07)";
+  ctx.beginPath();
+  ctx.arc(0, 0, COIN_R * 0.82, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  if (passed) {
+    drawPredator(ctx, enemyForLevel(level), cx, laneY - 78, 0.62, frame, true);
+  } else {
+    drawMouse(ctx, cx, laneY - 2, isNext ? 1.08 : 0.92, frame + level);
+  }
+
+  roundRect(ctx, cx - 36, laneY + COIN_R + 12, 72, 25, 12);
+  ctx.fillStyle = isNext ? "rgba(255,214,107,0.94)" : passed ? "rgba(117,255,157,0.85)" : "rgba(15,23,42,0.86)";
+  ctx.fill();
+  ctx.fillStyle = isNext || passed ? "#17110b" : "#f5fbff";
+  ctx.textAlign = "center";
+  ctx.font = "900 14px 'Space Grotesk', Inter, system-ui";
+  ctx.fillText(`${mult.toFixed(2)}x`, cx, laneY + COIN_R + 29);
+
+  ctx.fillStyle = isNext ? "#ffe9a8" : passed ? "#bdf7d4" : "rgba(220,230,236,0.78)";
+  ctx.font = "800 11px Inter, system-ui";
+  ctx.fillText(formatMoney(state.stake * mult), cx, laneY + COIN_R + 47);
 }
 
 function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, up: boolean, tint: string) {
@@ -674,8 +936,6 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
 
     const passed = n <= state.level;
     const isNext = n === (state.status === "crossing" ? state.fromLevel + 1 : state.level + 1);
-    const pulse = isNext ? 1 + Math.sin(state.wiggle * 5) * 0.06 : 1;
-    const r = COIN_R * pulse;
 
     const prevCx = screenX(levelX(n - 1));
     if (prevCx > -STEP && prevCx < rect.width + STEP) {
@@ -690,50 +950,16 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
       ctx.stroke();
     }
 
-    if (passed || isNext) {
-      ctx.save();
-      ctx.shadowColor = passed ? "rgba(55, 224, 122, 0.8)" : "rgba(255, 206, 58, 0.85)";
-      ctx.shadowBlur = 22;
-      ctx.beginPath();
-      ctx.arc(cx, laneY, r + 4, 0, Math.PI * 2);
-      ctx.strokeStyle = passed ? "#37e07a" : "#ffce3a";
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.restore();
+    drawCheckpoint(ctx, cx, laneY, n, state, diff, state.wiggle, neon);
+
+    if (!passed && n <= state.level + 4) {
+      const patrol = (state.wiggle * (0.42 + n * 0.018) + n * 0.31) % 1;
+      const wave = Math.sin(patrol * Math.PI * 2);
+      const enemyX = cx + wave * (STEP * 0.38);
+      const enemyY = laneY - 118 - Math.abs(Math.cos(patrol * Math.PI * 2)) * (isNext ? 28 : 16);
+      const scale = isNext ? 0.72 : 0.58;
+      drawPredator(ctx, enemyForLevel(n), enemyX, enemyY, scale, state.wiggle + n, false);
     }
-
-    const coin = ctx.createRadialGradient(cx - r * 0.4, laneY - r * 0.4, r * 0.2, cx, laneY, r);
-    if (passed) {
-      coin.addColorStop(0, "#9bf7c0");
-      coin.addColorStop(1, "#1f9a52");
-    } else if (isNext) {
-      coin.addColorStop(0, "#fff0bd");
-      coin.addColorStop(1, "#d99a16");
-    } else {
-      coin.addColorStop(0, "#aeb9c7");
-      coin.addColorStop(1, "#5b6675");
-    }
-    ctx.fillStyle = coin;
-    ctx.shadowColor = passed ? "#37e07a" : isNext ? "#ffce3a" : "rgba(255,255,255,0.5)";
-    ctx.shadowBlur = passed || isNext ? 20 : 6;
-    ctx.beginPath();
-    ctx.arc(cx, laneY, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255,255,255,0.5)";
-    ctx.beginPath();
-    ctx.arc(cx, laneY, r - 3, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#15120b";
-    ctx.font = "900 17px 'Space Grotesk', Inter, system-ui";
-    ctx.fillText(`${multAt(n, diff.survive).toFixed(2)}x`, cx, laneY + 5);
-
-    ctx.fillStyle = passed ? "#bdf7d4" : isNext ? "#ffe9a8" : "rgba(220,230,236,0.78)";
-    ctx.font = "700 11px Inter, system-ui";
-    ctx.fillText(formatMoney(state.stake * multAt(n, diff.survive)), cx, laneY + r + 16);
   }
 
   for (const a of state.ambient) {
@@ -744,13 +970,22 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
 
   const headX = screenX(state.snakeWX);
   const dead = state.status === "dead";
-  const amp = state.status === "crossing" ? 5.5 : 3;
+  const amp = state.status === "crossing" ? 5.5 : state.status === "safe" ? 4.4 : 3;
   drawSnake(ctx, headX, laneY, state.targetSegments, snakeColor, state.wiggle, amp, dead, neon);
+
+  if (state.status === "safe") {
+    ctx.save();
+    ctx.globalAlpha = 0.72 + Math.sin(state.wiggle * 4) * 0.18;
+    ctx.fillStyle = "#dfffe9";
+    ctx.font = "900 12px 'Space Grotesk', Inter, system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText(state.level === 0 ? "READY" : "SAFE", headX - 14, laneY - 34);
+    ctx.restore();
+  }
 
   if (state.status === "crossing" || state.status === "dead") {
     const diveX = screenX(state.snakeWX);
     let birdY = -160;
-    let birdRot = -0.4;
     let birdScale = 1.5;
     let strike = 0;
     let show = false;
@@ -758,7 +993,6 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
       const p = Math.min(1, state.chopAnim / CHOP_TIME);
       const diveEase = 1 - Math.pow(1 - Math.min(1, p / 0.82), 2.4);
       birdY = -160 + (laneY - 6 - (-160)) * diveEase;
-      birdRot = -0.65 + diveEase * 0.65;
       birdScale = 1.4 + diveEase * 0.9;
       strike = Math.max(0, (p - 0.72) / 0.28);
       show = true;
@@ -774,7 +1008,6 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
       }
     } else if (dead && !state.crossSurvive) {
       birdY = laneY - 4;
-      birdRot = 0.05;
       birdScale = 2.1;
       strike = 1;
       show = true;
@@ -783,10 +1016,10 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
       if (strike < 0.5) {
         ctx.save();
         ctx.globalAlpha = 0.22;
-        drawBird(ctx, diveX, birdY + 36, birdScale * 0.75, birdRot, true, state.wiggle, 0);
+        drawPredator(ctx, "eagle", diveX, birdY + 36, birdScale * 0.52, state.wiggle, false);
         ctx.restore();
       }
-      drawBird(ctx, diveX, birdY, birdScale, birdRot, true, state.wiggle, strike);
+      drawPredator(ctx, "eagle", diveX, birdY, birdScale * 0.62, state.wiggle, false);
       if (strike > 0.35) {
         for (let f = 0; f < 6; f += 1) {
           const ang = (f / 6) * Math.PI * 2 + state.wiggle * 2;
@@ -1127,7 +1360,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
                 <>
                   <div className="end-icon lose"><Skull size={30} /></div>
                   <h3>Snatched!</h3>
-                  <p>A raptor dove out of the dark mid-crossing. You lost {formatMoney(stake)}.</p>
+                  <p>An eagle dove out of the dark mid-crossing. You lost {formatMoney(stake)}.</p>
                   <p className="end-sub">Reached level {hud.level} · {hud.multiplier.toFixed(2)}x</p>
                 </>
               ) : (
@@ -1157,7 +1390,7 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
                 <li>Each <b>Go</b> or <b>Space</b> tap leaps one ledge deeper into the cave.</li>
                 <li><b>Hold Space</b> to chain several leaps in a single dash.</li>
                 <li>Every ledge you land raises your cash multiplier.</li>
-                <li>Bank it whenever you're perched. If a raptor catches you mid-leap, the run is over.</li>
+                <li>Bank it whenever you're perched. If a predator catches you mid-leap, the run is over.</li>
               </ol>
               <p className="info-note">
                 Lower risk reaches the deep ledges far more often. Higher risk pays more per ledge but rarely lets you run deep. Play money only — no real currency.
