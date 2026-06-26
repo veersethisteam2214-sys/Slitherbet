@@ -43,6 +43,16 @@ const HEAD_R = 13;
 type Ambient = { gap: number; y: number; v: number; size: number; rot: number; spin: number; frozen: boolean };
 type Burst = { wx: number; t: number; amount: number };
 
+type HudState = {
+  status: Status;
+  level: number;
+  multiplier: number;
+  cashout: number;
+  nextMultiplier: number;
+  result: number;
+  lanes: number;
+};
+
 type SPState = {
   status: Status;
   stake: number;
@@ -123,6 +133,31 @@ function createState(stake: number, difficulty: Difficulty): SPState {
     bursts: [],
     recorded: false,
   };
+}
+
+function createHudState(state: SPState): HudState {
+  const survive = DIFFS[state.difficulty].survive;
+  return {
+    status: state.status,
+    level: state.level,
+    multiplier: multAt(state.level, survive),
+    cashout: state.stake * multAt(state.level, survive),
+    nextMultiplier: multAt(state.level + 1, survive),
+    result: state.result,
+    lanes: DIFFS[state.difficulty].lanes,
+  };
+}
+
+function hudChanged(a: HudState, b: HudState) {
+  return (
+    a.status !== b.status ||
+    a.level !== b.level ||
+    a.lanes !== b.lanes ||
+    Math.abs(a.multiplier - b.multiplier) > 0.0001 ||
+    Math.abs(a.cashout - b.cashout) > 0.001 ||
+    Math.abs(a.nextMultiplier - b.nextMultiplier) > 0.0001 ||
+    Math.abs(a.result - b.result) > 0.001
+  );
 }
 
 function startCrossing(state: SPState) {
@@ -657,7 +692,14 @@ function drawPlatform(ctx: CanvasRenderingContext2D, cx: number, laneY: number, 
   ctx.fill();
 }
 
-function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: number, laneY: number, neon: boolean) {
+function drawCaveBackground(
+  ctx: CanvasRenderingContext2D,
+  rect: DOMRect,
+  camX: number,
+  laneY: number,
+  neon: boolean,
+  frame: number,
+) {
   const w = rect.width;
   const h = rect.height;
 
@@ -765,7 +807,7 @@ function drawCaveBackground(ctx: CanvasRenderingContext2D, rect: DOMRect, camX: 
   for (let i = 0; i < 36; i += 1) {
     const px = (i * 173 - camX * (0.16 + (i % 5) * 0.014)) % (w + 120) - 60;
     const py = 58 + ((i * 97) % Math.max(140, h - 140));
-    const twinkle = 0.35 + Math.sin(performance.now() * 0.0015 + i) * 0.25;
+    const twinkle = 0.35 + Math.sin(frame * 1.5 + i) * 0.25;
     ctx.globalAlpha = Math.max(0.08, twinkle);
     ctx.fillStyle = i % 3 === 0 ? "#b98cff" : i % 3 === 1 ? "#7af7ff" : "#7dffb3";
     ctx.beginPath();
@@ -914,7 +956,7 @@ function draw(canvas: HTMLCanvasElement, state: SPState, snakeColor: string, the
   ctx.save();
   ctx.translate(shakeX, shakeY);
 
-  drawCaveBackground(ctx, rect, state.camX, laneY, neon);
+  drawCaveBackground(ctx, rect, state.camX, laneY, neon, state.wiggle);
 
   const firstLane = Math.max(0, Math.floor(state.camX / STEP) - 1);
   const lastLane = Math.min(diff.lanes, firstLane + Math.ceil(rect.width / STEP) + 2);
@@ -1088,15 +1130,8 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
   const [autoplay, setAutoplay] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showColors, setShowColors] = useState(false);
-  const [hud, setHud] = useState({
-    status: "ready" as Status,
-    level: 0,
-    multiplier: 1,
-    cashout: 0,
-    nextMultiplier: multAt(1, DIFFS.easy.survive),
-    result: 0,
-    lanes: DIFFS.easy.lanes,
-  });
+  const [hud, setHud] = useState<HudState>(() => createHudState(stateRef.current));
+  const hudRef = useRef(hud);
 
   useEffect(() => {
     colorRef.current = snakeColor;
@@ -1202,16 +1237,11 @@ export function SinglePlayerGame({ balance, bets, theme, onAdjustBalance, onReco
         }
       }
 
-      const survive = DIFFS[s.difficulty].survive;
-      setHud({
-        status: s.status,
-        level: s.level,
-        multiplier: multAt(s.level, survive),
-        cashout: s.stake * multAt(s.level, survive),
-        nextMultiplier: multAt(s.level + 1, survive),
-        result: s.result,
-        lanes: DIFFS[s.difficulty].lanes,
-      });
+      const nextHud = createHudState(s);
+      if (hudChanged(hudRef.current, nextHud)) {
+        hudRef.current = nextHud;
+        setHud(nextHud);
+      }
       frameRef.current = requestAnimationFrame(loop);
     };
     frameRef.current = requestAnimationFrame(loop);
