@@ -3,8 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "./audio";
 import { FloatingActionMenu } from "./components/FloatingActionMenu";
 import { BetHistory } from "./modes/BetHistory";
-import { Loading } from "./modes/Loading";
-import { Menu } from "./modes/Menu";
+import { HomeEntry } from "./modes/HomeEntry";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
 import { SinglePlayerGame } from "./modes/SinglePlayerGame";
@@ -30,7 +29,6 @@ function loadBool(key: string, fallback: boolean) {
 }
 
 export function App() {
-  const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<Screen>("menu");
   const [balance, setBalance] = useState(STARTING_BALANCE);
   const [activeTier, setActiveTier] = useState<Tier | null>(null);
@@ -144,14 +142,6 @@ export function App() {
     audio.play("click");
   }, []);
 
-  if (booting) {
-    return (
-      <main className="app-shell">
-        <Loading onDone={() => setBooting(false)} />
-      </main>
-    );
-  }
-
   const fabOptions = [
     {
       label: `Music ${musicOn ? "on" : "off"}`,
@@ -183,7 +173,7 @@ export function App() {
   return (
     <main className={`app-shell ${theme === "neon" ? "theme-neon" : "theme-arcade"} screen-${screen}`}>
       {screen === "menu" && (
-        <Menu
+        <HomeEntry
           balance={balance}
           theme={theme}
           username={username}
