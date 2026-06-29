@@ -4,6 +4,7 @@ import { audio } from "./audio";
 import { FloatingActionMenu } from "./components/FloatingActionMenu";
 import { BetHistory } from "./modes/BetHistory";
 import { HomeEntry } from "./modes/HomeEntry";
+import { SlitherIntro } from "./modes/SlitherIntro";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
 import { SinglePlayerGame } from "./modes/SinglePlayerGame";
@@ -29,6 +30,7 @@ function loadBool(key: string, fallback: boolean) {
 }
 
 export function App() {
+  const [booting, setBooting] = useState(true);
   const [screen, setScreen] = useState<Screen>("menu");
   const [balance, setBalance] = useState(STARTING_BALANCE);
   const [activeTier, setActiveTier] = useState<Tier | null>(null);
@@ -141,6 +143,10 @@ export function App() {
     });
     audio.play("click");
   }, []);
+
+  if (booting) {
+    return <SlitherIntro onDone={() => setBooting(false)} />;
+  }
 
   const fabOptions = [
     {
