@@ -7,7 +7,6 @@ import { HomeEntry } from "./modes/HomeEntry";
 import { SlitherIntro } from "./modes/SlitherIntro";
 import { MultiplayerGame } from "./modes/MultiplayerGame";
 import { MultiplayerLobby } from "./modes/MultiplayerLobby";
-import { SinglePlayerGame } from "./modes/SinglePlayerGame";
 import {
   loadEquippedCosmetics,
   loadOwnedCosmetics,
@@ -174,7 +173,7 @@ export function App() {
     },
   ];
 
-  const fabPlacement = screen === "single" ? "single" : screen === "match" ? "match" : "default";
+  const fabPlacement = screen === "match" ? "match" : "default";
 
   return (
     <main className={`app-shell ${theme === "neon" ? "theme-neon" : "theme-arcade"} screen-${screen}`}>
@@ -189,16 +188,7 @@ export function App() {
         />
       )}
 
-      {screen === "single" && (
-        <SinglePlayerGame
-          balance={balance}
-          bets={bets}
-          theme={theme}
-          onAdjustBalance={adjustBalance}
-          onRecordBet={recordBet}
-          onExit={() => setScreen("menu")}
-        />
-      )}
+      {screen === "single" && <div className="single-blank-screen" aria-label="Single player placeholder" />}
 
       {screen === "lobby" && (
         <MultiplayerLobby
@@ -229,7 +219,7 @@ export function App() {
 
       {showBets && <BetHistory bets={bets} onClose={() => setShowBets(false)} />}
 
-      <FloatingActionMenu options={fabOptions} placement={fabPlacement} />
+      {screen !== "single" && <FloatingActionMenu options={fabOptions} placement={fabPlacement} />}
     </main>
   );
 }

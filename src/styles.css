@@ -64,6 +64,19 @@ h1 {
   overflow-x: hidden;
 }
 
+.app-shell.screen-single {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background: #000;
+}
+
+.single-blank-screen {
+  flex: 1;
+  min-height: 100vh;
+  background: #000;
+}
+
 .eyebrow {
   display: block;
   color: var(--muted);
